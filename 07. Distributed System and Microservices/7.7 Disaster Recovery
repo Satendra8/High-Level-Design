@@ -1,0 +1,123 @@
+Disaster recovery (DR)
+
+    -> Disaster recovery (DR) is an organization’s ability to restore access and functionality to IT infrastructure after a disaster event, whether natural or caused by human action (or error).
+    -> DR is considered a subset of business continuity, explicitly focusing on ensuring that the IT systems that support critical business functions are operational as soon as possible after a disruptive event occurs.
+
+
+
+What is an IT disaster recovery plan?
+
+
+    -> An IT disaster recovery plan is a portfolio of policies, tools, and processes used to recover or continue operations of critical IT infrastructure, software, and systems after a natural or human-made disaster.
+    -> The first and foremost aspect of a disaster recovery plan is the cloud. The cloud is considered the best solution for both business continuity and disaster recovery. The cloud eliminates the need to run a separate disaster recovery data center (or recovery site).
+
+
+
+
+What is considered an IT disaster?
+
+    -> DR planning and strategies focus on responding to and recovering from disasters—events that disrupt or completely stop a business from operating.
+    -> While these events can be natural disasters like a hurricane, they can also be caused by a severe system failure, an intentional attack, or even human error.
+
+    Types of IT disasters can include: 
+
+        i. Cyber attacks (for example, malware, DDoS, and ransomware attacks)
+        ii. Technological hazards (for example, power outages, pipeline explosions, and transportation accidents)
+        iii. Machine and hardware failure 
+
+
+
+
+
+Importance of disaster recovery
+
+    -> Disaster recovery for cloud-based systems is critical to an overall business continuity strategy. A system breakdown or unplanned downtime can have serious consequences for enterprises that rely heavily on cloud-based resources, applications, documents, and data storage to keep things running smoothly. 
+    -> In addition, data privacy laws and standards stipulate that most organizations are now required to have a disaster recovery strategy. Failure to follow DR plans can result in compliance violations and steep regulatory fines. 
+
+    -> Here's why disaster recovery is essential:
+
+        i. Protects data: Minimizes data loss and ensures quick recovery.
+        ii. Ensures business continuity: Allows operations to resume quickly after a disruption.
+        iii. Reduces financial impact: Minimizes revenue loss, fines, and recovery costs.
+        iv. Maintains reputation: Protects brand image and customer trust.
+        v. Meets compliance requirements: Helps adhere to data privacy laws and industry standards.
+
+
+
+
+What are the five steps of disaster recovery?
+
+    i. Risk assessment: Identify potential threats and vulnerabilities that could disrupt IT systems and business operations.
+    ii. Business impact analysis (BIA): Determine the impact of potential disruptions on critical business functions, including financial losses, reputational damage, and compliance violations.
+    iii. DR planning: ﻿Develop a comprehensive DR plan that outlines the steps to be taken before, during, and after a disaster event. This plan should include clear roles and responsibilities, recovery procedures, and communication protocols.
+    iv. Implementation: Implement the DR plan by setting up backup and replication systems, configuring failover mechanisms, and establishing communication channels.
+    v. Testing and maintenance: Regularly test the DR plan to ensure its effectiveness and identify any weaknesses. Update the plan as needed to reflect changes in the IT environment and business requirements.
+
+
+
+
+How disaster recovery works
+
+    -> Disaster recovery relies on having a solid plan to get critical applications and infrastructure up and running after an outage—ideally within minutes.
+    -> An effective DR plan addresses three different elements for recovery: 
+
+        i. Preventive: Ensuring your systems are as secure and reliable as possible, using tools and techniques to prevent a disaster from occurring in the first place. This may include backing up critical data or continuously monitoring environments for configuration errors and compliance violations. 
+        ii. Detective: For rapid recovery, you’ll need to know when a response is necessary. These measures focus on detecting or discovering unwanted events as they happen in real time. 
+        iii. Corrective: These measures are aimed at planning for potential DR scenarios, ensuring backup operations to reduce impact, and putting recovery procedures into action to restore data and systems quickly when the time comes. 
+
+
+
+
+
+Types of disaster recovery
+
+    -> The types of disaster recovery you’ll need will depend on your IT infrastructure, the type of backup and recovery you use, and the assets you need to protect.
+
+
+    i. Backups: Data is backed up to a secondary offsite system or shipped to a secondary offsite location. Does not include IT infrastructure.
+        
+        - Use case: Archiving data for long-term retention and compliance purposes.
+    
+    ii. Backup as a service (BaaS): A third-party provider offers regular data backups.
+    
+        - Use case: Small and medium-sized businesses that lack the resources to manage their own backups.
+    
+    iii. Disaster recovery as a service (DRaaS): Data and IT infrastructure are backed up and hosted on a third-party provider’s cloud infrastructure. The provider implements and orchestrates the DR plan during a crisis.
+    
+        - Use case: Organizations that want to outsource their DR operations to a specialized provider and minimize downtime.
+    
+    iv. Point-in-time snapshots: Data, files, or an entire database are replicated at a specific point in time. Snapshots can be used to restore data as long as the copy is stored in a location unaffected by the event.
+    
+        - Use case: Quickly recovering from data corruption or accidental deletion, with some potential for data loss depending on the snapshot frequency.
+    
+    v. Virtual DR: Operations and data are backed up, or a complete replica of the IT infrastructure is created and run on offsite virtual machines (VMs).
+    
+        - Use case: Quickly resuming operations after a disaster by failing over to a virtualized environment, requiring frequent data and workload transfers.
+    
+    vi. Disaster recovery sites: Locations that organizations can temporarily use after a disaster event, which contain backups of data, systems, and other technology infrastructure.
+    
+        - Use case: Providing a physical location to recover operations in the event of a complete loss of the primary data center, suitable for organizations with strict compliance requirements or those needing to maintain physical control over their DR environment.
+
+
+
+    
+Benefits of disaster recovery
+
+    i. Stronger business continuity 
+    ii. Enhanced security
+    iii. Faster recovery
+    iv. Reduced recovery costs
+    v. High availability
+    vi. Better compliance
+
+
+
+
+
+
+Planning a disaster recovery strategy
+
+    -> A comprehensive disaster recovery strategy should include detailed emergency response requirements, backup operations, and recovery procedures. DR strategies and plans often help form a broader business continuity strategy, which includes contingency plans to mitigate impact beyond IT infrastructure and systems, allowing all business areas to resume normal operations as soon as possible. 
+
+        i. Recovery time objective (RTO): The maximum acceptable length of time that systems and applications can be down without causing significant damage to the business. For example, some applications can be offline for an hour, while others might need to recover in minutes.
+        ii. Recovery point objective (RPO): The maximum age of data you need to recover to resume operations after a major event. RPO helps to define the frequency of backups.

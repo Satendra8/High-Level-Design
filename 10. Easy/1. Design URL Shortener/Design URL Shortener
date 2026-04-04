@@ -1,0 +1,289 @@
+1. Requiremment Clarification
+
+    i. Functional Requiremment:
+
+        -> Shorten Url
+        -> Redirection
+        -> Custom Alias
+        -> Expiration
+        -> Analytics: check click count
+
+    ii. Non Functional Requiremment: (LCS + DFS)
+
+        -> Low latency on redirect
+        -> Low latency on write
+        -> CAP (availability over consistency needed in this case)
+        -> Scalability (100: 1 read to write ratio)
+        -> Durability, Fault Tolerence, Security (DFS)
+        -> Uniqueness: Short code should be unique for each long url (problem specific)
+
+
+
+2. Metrices
+
+    Assumption:
+
+        -> New link created daily = 10M
+        -> (100: 1 ratio) = 1000M (read redirects) approx 1B
+
+    i. Write
+
+        QPS = 10000000 / (24 * 3600) = 115 QPS (normal time)
+
+        peak time = 115 * 3 = 350 QPS
+
+    ii. Read
+
+        QPS = 1000000000 / (24 * 3600) = 11500 QPS (normal time)
+
+        peak time = 11500 * 3 = 35000 QPS
+
+
+    iii. Storage
+
+        Short code = 7 character = 7 bytes
+        Long Url = 200 character = 200 bytes
+        UserId = UUID = 36 bytes
+        TimeStamp, Metadata = 50 bytes
+    ---------------------------------------------
+        Total               = 300 bytes
+
+    
+    Url Per day = 10M / day  * 365 days = 3.65 billion URLs / per year
+    Storage per year = 3.65 billion * 300 bytes = 1.1 TB / year
+
+    5 - year storage = 5 * 1.1 TB = 5.5 TB
+
+
+    ** Short Code Lenght
+
+        Use base62 encoding (a-z, A-Z, 0-9) (base62 because base64 uses characters which are not url friendly)
+
+        6 charachter = 62^6 possible combinations = 56.8 billion unique codes
+        7 charachter = 62^7 possible combinations = 3.5 trillion unique codes
+
+
+
+3. API Design
+
+    i. Write (POST)
+
+        URL: /shorten
+        Payload: {
+                long_url: 'www.google.com',
+                custom_code: '',
+                expiry_date = '2026-12-12'
+                user_id: 123
+              }
+
+
+        Response: {
+                    short_url: 'short.url/axzzz',
+                    long_url: 'www.google.com',
+                    expiry_date = '2026-12-12',
+                    created_at = '2026-02-19',
+                  }
+
+
+        Error Codes:
+
+            a. 409 Conflict: custom_code already exists
+            b. 400 Bad request: invalid url or data
+            c. 401 Unauthorized: user is not authenticated
+
+        
+    ii. Read (GET)
+
+        URL: /{short_code}
+
+        Response: 
+            301 Moved Permanently: www.google.com
+        
+        301: redirect to the new url, also cache the redirect in browser (future request go directly to new url)
+    
+        302: Found: Redirect to new url, Don't cache (use for monitoring as request always come on origional site)
+
+
+        URL: GET /analytics/{short_code}
+
+        Response: {
+                    short_code: axzzz,
+                    total_clicks: 15420,
+                    created_at: '2026-02-19',
+                    last_accessed: '2026-02-28'
+                   }
+
+
+
+
+4. HLD
+
+    -> 100: 1 (read-write ratio) - split into 2 services to scale indenpendently
+
+    i. URL Shortening (Write)
+    ii. Redirection (Read)
+
+
+    Components Needed:
+
+        a. Load Balancer
+        b. Url Generation Service
+        c. Redirection Service
+        d. Database
+        c. cache layer
+
+
+
+5. Database Design
+
+    i. SQL vs NoSQL
+
+        -> No relation and ACID required so we use NoSQL
+        -> NoSQL database like DynamoDB or Cassandra is a better option due to their ability to efficiently handle billions of simple key-value lookups and provide high scalability and availability.
+
+
+    ii. Tables
+
+        UrlMapping
+
+            short_code	String      (PK)	Unique identifier, partition key
+            long_url	String	            Original destination URL
+            user_id	    String	            Creator's user ID (optional)
+            created_at	Timestamp	        When the link was created
+            expires_at	Timestamp	        When the link expires
+            click_count	Integer	            Number of redirects
+            is_custom	Boolean	            Whether this is a custom alias
+
+
+        User (optional)
+
+            user_id	    String                 (PK)	Unique user identifier
+            email	    String	                User's email address
+            created_at	Timestamp	            Account creation date
+            api_key	    String	                For programmatic access
+
+
+
+
+6. Design Deep Dive
+
+    Problem 1: Unique URL Generation
+
+        Approach 1: Hashing + Encoding (Deterministic)
+
+            Step 1: Canonicalize the URL: Before hashing, the URL must be standardized to avoid generating multiple short links for what is essentially the same destination.
+                https://Example.com/
+                https://example.com
+                https://example.com:443/
+
+                consider all as same
+
+            Step 2: Generate a Hash
+                Long URL: https://example.com/courses/system-design
+                MD5: 1b3aabf5266b0f178f52e45f4bb430eb
+
+
+            Step 3: Truncate and Encode - we take the first few bytes (e.g., 48 bits = 6 bytes) and encode them using Base62.
+                Why Base62?
+                    Base62 encoding uses a 62-character set (A-Z, a-z, 0-9) that is URL-friendly. It's preferred over Base64, which includes + and /, characters that have special meaning in URLs and would require escaping.
+
+
+            Example Workflow:
+                i. User submits a request to generate short url for the long url: 
+                ii. Generate an MD5 hash of the long URL. MD5 produces a 128-bit hash, typically a 32-character hexadecimal string: 1b3aabf5266b0f178f52e45f4bb430eb
+                iii. Instead of encoding the entire 128-bit hash, we typically use a portion of the hash (e.g., the first few bytes) to create a more manageable short URL. First 6 bytes of the hash: 1b3aabf5266b
+                iv. Convert these bytes to decimal: 1b3aabf5266b (hexadecimal) → 47770830013755 (decimal)
+                v. Encode the result into a Base62 encoded string: DZFbb43
+
+            Collision Resolution Strategies
+                1. Re-hash with a Salt
+                    Add a random salt or nonce to the original URL and hash again: hash = sha256(url + salt)
+                    Repeat until a unique short code is found.
+
+                2. Append a Suffix
+                    Attach a small counter or suffix to the colliding short code:
+                    DZFbb43 → DZFbb43-1 → DZFbb43-2
+
+            
+        Approach 2: Global Counter (Non-Deterministic)
+
+            This is one of the simplest and most reliable ways to generate short URLs.
+
+            1. Request a Unique ID: When an application server receives a request to shorten a URL, it contacts a Counter Service typically implemented with a fast in-memory data store like Redis, etcd, or Zookeeper.
+            2. Encode the ID: 1,000 -> Base62 g8
+
+
+            Pros
+                Guaranteed Uniqueness: Each ID is globally unique. No collision detection or retry logic needed.
+                Simplicity and Speed: Just one operation (INCR) per short URL. Sub-millisecond latency in Redis or etcd.
+                Deterministic Length: Short codes grow logarithmically with the total number of URLs.
+            Cons
+                Centralized Bottleneck: Every URL creation request must pass through the counter service.Throughput is limited by the counter’s network and CPU capacity.
+                Single Point of Failure (SPOF): If the counter service (Redis, etc.) crashes, no new URLs can be generated. The read path (redirection) still works, but the write path halts.
+                Predictability: Since IDs are sequential, they can be easily guessed or decoded. A malicious user could increment IDs to discover private short links.
+
+
+        Approach 3: Distributed unique ID generator
+
+
+
+
+    Problem 2: Fast URL Redirections
+
+        -> 301 (Moved Permanently)
+        -> 302/307 (Temporary Redirect)
+
+
+        The Read Path
+
+            Layer 1: Browser Cache
+            Layer 2: CDN / Edge Cache
+            Layer 3: In-Memory Cache (Redis/Memcached)
+            Layer 4: Database (Source of Truth)
+
+
+
+    Problem 3: Supporting Custom Aliases
+
+        1. API Design: The API for link creation should accept an optional custom_alias parameter along with the long URL.
+
+        2. Rigorous Validation: Before creating a custom alias, the system must validate it against strict rules to prevent conflicts, misuse, or routing errors.
+
+        3. Ensuring Uniqueness and Handling Race Conditions: Instead of relying on application logic, use the database itself as the source of truth by defining a UNIQUE constraint on the alias column.
+
+
+
+    Problem 4: Supporting Link Expiration
+
+        1. Active Deletion (Background Job): A scheduled worker process periodically scans the database for expired links and deletes them.
+
+        2. Passive Expiration (Real-Time Check): In this approach, the link is never physically deleted when it expires. Instead, the application layer checks the expiration timestamp during the redirect lookup.
+
+        3. Recommended Hybrid Approach
+            -> Passive Expiration for Read Path
+            -> Lazy Cleanup for Data Hygiene
+
+        4. Caching and Expiration Consistency
+
+            When writing to any cache, set the cache TTL to the smaller of:
+            TTL_cache = min(link.remaining_lifetime, default_cache_ttl)
+
+
+
+    Problem 5: Analytics – Click Count
+
+        1. Approach 1: Direct Increment (Simple, Suitable for Low Scale)
+
+        2. Approach 2: Buffered Counting (Recommended for Scale)
+
+            For high-traffic systems, direct increments are inefficient. Instead, accumulate clicks in memory or a fast cache and flush them periodically to the database.
+
+
+
+    Problem 6: Handling High Availability
+
+        1. Multi-Region Deployment
+
+        2. Database Replication
+
+        3. Graceful Degradation

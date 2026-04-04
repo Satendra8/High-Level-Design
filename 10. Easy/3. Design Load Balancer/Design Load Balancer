@@ -1,0 +1,305 @@
+1. Requiremment Clarification
+
+    i. Functional Requirement
+
+        -> Traffic Distribution: Distribute incoming requests across multiple backend servers using configurable algorithms.
+        -> Health Checking: Continuously monitor backend servers and automatically remove unhealthy ones from the pool.
+        -> Session Persistence: Support sticky sessions to route requests from the same client to the same server.
+        -> SSL Termination: Handle SSL/TLS encryption and decryption to offload work from backend servers.
+        -> Layer 4 and Layer 7 Support: Support both transport-level (TCP/UDP) and application-level (HTTP/HTTPS) load balancing.
+
+
+    ii. Non-Functional Requirements
+
+        -> High Availability: The load balancer must be highly available (99.99% uptime) with no single point of failure.
+        -> Low Latency: Should add minimal latency to requests (< 1ms overhead).
+        -> High Throughput: Handle up to 1 million requests per second at peak.
+        -> Scalability: Should scale horizontally to handle increasing traffic.
+        -> Fault Tolerance: Continue operating even when individual components fail.
+
+
+2. Metrices
+
+    i. Traffic Estimates
+
+        Peak Traffic: 1M request per second
+        Average Traffic: 300K request per second
+        Concurrent Connections: 500k
+
+    ii. Bandwidth Estimates
+
+        Average request size:  ~2 KB (HTTP headers + small payload)
+        Average response size: ~10 KB (typical API response)
+
+        Ingress bandwidth = 1M RPS × 2 KB = 2 GB/s
+        Egress bandwidth  = 1M RPS × 10 KB = 10 GB/s
+        Total bandwidth   = 12 GB/s = ~96 Gbps
+
+    iii. Health Check Overhead
+
+        With 1,000 backend servers and checks every 5 seconds:
+
+            Health check traffic = 1,000 servers / 5 seconds = 200 checks/second
+
+    iv. Memory Requirements
+
+        Each active connection needs state tracking in memory:
+
+            Source IP + port	            6 bytes
+            Destination IP + port	        6 bytes
+            Connection state	            4 bytes
+            Timestamps	                    16 bytes
+            Protocol-specific data	        ~200 bytes
+            Buffer space	                ~250 bytes
+            Total per connection	        ~500 bytes
+
+        For 500,000 concurrent connections:
+
+        Connection state memory = 500,000 × 500 bytes = 250 MB
+
+    v. Key Insights
+
+        i. Network bandwidth is the primary constraint. At 12 GB/s, we need high-speed networking and likely multiple load balancer nodes.
+        ii. Memory is not a concern. Connection tracking is cheap. Even 10x our estimate would only be 2.5 GB.
+        iii. Health checks are lightweight. 200 checks per second is nothing compared to 1M requests per second.
+        iv. Horizontal scaling is necessary. A single machine cannot handle 100 Gbps of traffic. We need to design for multiple load balancer nodes from the start.
+
+
+
+3. Core APIs
+
+    A load balancer has two distinct interfaces. 
+        
+        i. The data plane handles actual traffic (this is where millions of requests flow through), and 
+        ii. the control plane handles configuration and management (registering backends, changing algorithms, viewing health status).
+
+    The data plane is implicit since it just forwards network traffic. The control plane needs explicit APIs for operators to manage the system.
+
+
+    i. Register Backend Server
+
+        Url: POST /backends
+
+        Payload: {
+                    "address": "10.0.1.15",
+                    "port": 8080,
+                    "weight": 2,
+                    "health_check_path": "/healthz"
+                }
+
+
+        Response: {
+                "backend_id": "backend-a1b2c3",
+                "status": "unknown", //(healthy, unhealthy can come later)
+                "message": "Backend registered. Health check pending."
+            }
+
+        
+    ii. Remove Backend Servers
+
+        Url: DELETE /backends/{backend_id}
+
+        Response {
+                "message": "Backend removed successfully",
+                "backend_id": "backend-a1b2c3",
+                "drained_connections": 42
+            }
+
+        The drained_connections field tells you how many connections were in progress when the backend was removed.
+
+
+    iii. Get Backend Health Status
+
+        Url: GET /backends/{backend_id}/health
+
+        Response: {
+                "backend_id": "backend-a1b2c3",
+                "status": "healthy",
+                "last_check": "2024-01-15T10:30:00Z",
+                "response_time_ms": 12,
+                "active_connections": 847,
+                "total_requests": 1250000,
+                "failed_requests": 23
+            }
+
+        
+    iv. Configure Load Balancing Algorithm
+
+        Url: PUT /config/algorithm
+
+        Payload: {
+                "algorithm": "least_connections",
+                "sticky_sessions": true,
+                "sticky_ttl_seconds": 1800
+            }
+
+        
+        algorithm -> One of: round_robin, weighted_round_robin, least_connections, ip_hash, random
+        sticky_sessions -> Enable session persistence (default: false)
+        sticky_ttl_seconds -> How long sticky sessions last (default: 3600)
+
+    
+        Response: {
+                "message": "Configuration updated",
+                "algorithm": "least_connections",
+                "sticky_sessions": true
+            }
+
+
+
+4. Database Schema
+
+    BackendServer
+
+        backend_id       String (PK)	Unique identifier (e.g., "backend-a1b2c3")
+        address	         String	        IP address or hostname
+        port	         Integer	    Port the server listens on
+        weight	         Integer	    Weight for weighted algorithms (default: 1)
+        max_connections	 Integer	    Maximum concurrent connections (0 = unlimited)
+        enabled	         Boolean	    Administrative toggle to disable without removing
+        created_at	     Timestamp	    When this backend was registered
+        updated_at       Timestamp	    Last configuration change
+
+
+    Session Store Schema (Redis)
+
+        Key:   sticky:{client_identifier}
+        Value: backend-a1b2c3
+        TTL:   1800 seconds (30 minutes, configurable)
+
+
+        When a request arrives:
+
+            Look up sticky:{client_identifier} in Redis
+            If found and the backend is healthy, route to that backend
+            If not found (or backend is unhealthy), apply normal algorithm and store the mapping
+
+
+5. HLD
+
+    Our load balancer needs to do three fundamental things:
+
+        1. Distribute Traffic: Accept incoming requests and forward them to healthy backend servers.
+        2. Monitor Health: Continuously check backends and route around failures.
+        3. Stay Available: The load balancer itself cannot be a single point of failure.
+
+
+        1. Distribute Traffic: Accept incoming requests and forward them to healthy backend servers.
+
+            Components:
+
+                i. Client
+
+                ii. Frontend Listeners: This is the entry point for all client traffic
+
+                iii. Routing Engine: This is the brain of the load balancer. Given a connection, the routing engine decides which backend server should handle it.
+
+
+        2. Monitor Health: Continuously check backends and route around failures.
+
+            The health checker is responsible for:
+
+                i. Sending periodic probes to each backend (typically every 5-10 seconds)
+                ii. Tracking the history of successes and failures
+                iii. Deciding when a backend should be marked unhealthy (usually after 2-3 consecutive failures)
+                iv. Deciding when an unhealthy backend can be marked healthy again (after 2-3 consecutive successes)
+                v. Notifying the routing engine whenever a backend's status changes
+
+            Components:
+
+                i. Health Checker: Checks health in loop (Backend1, Backend2, ...)
+
+                ii. Reouting Engine: same above one
+
+
+            FLow:
+
+                i. Continuous monitoring: The health checker sends probes to each backend every 5 seconds. Backends 1 and 3 respond with 200 OK. Backend 2 does not respond within the timeout.
+                ii. Failure tracking: One failed check is not enough to mark a backend unhealthy (it could be a network blip). After 3 consecutive failures, Backend 2 is marked unhealthy.
+                iii. Status update: The health checker notifies the routing engine that Backend 2 is now unhealthy.
+                iv. Traffic rerouting: The routing engine immediately stops sending new traffic to Backend 2. Only Backends 1 and 3 receive requests.
+                v. Recovery: If Backend 2 starts responding again, it needs to pass several consecutive health checks before being marked healthy and returned to the pool. This prevents flapping (rapidly switching between healthy and unhealthy).
+
+
+        3. Stay Available: The load balancer itself cannot be a single point of failure.
+
+            Run multiple load balancer instances to avoid Single Point of failure
+
+            Problem with this
+
+                i. How do clients know which instance to connect to?
+                ii. What happens when one instance fails?
+                iii. How do we handle state (like sticky sessions) across multiple instances?
+
+
+            Pattern 1: Active-Passive (Failover): one load balancer handles all traffic while a backup waits idle, ready to take over if the primary fails.
+
+            Pattern 2: Active-Active: In this pattern, multiple load balancer nodes handle traffic simultaneously. If one fails, the others continue without interruption.
+
+                Traffic is distributed across multiple load balancer nodes using one of several methods:
+
+                    DNS round-robin: DNS returns multiple IP addresses, and clients pick one. Not ideal since DNS caching can cause uneven distribution and slow failover.
+
+
+
+
+6. Design Deep Dive (LLD)
+
+    i. Load Balancing Algorithms
+
+        Algorithm	       Complexity	    Statefulness	Adaptiveness	Best For
+
+        Round Robin	        Very simple	    Stateless	       None	        Homogeneous backends, uniform requests
+        Weighted            Round Robin	    Simple Stateless   None	        Known capacity differences
+        Least Connections   Moderate	    Per-node state	   High	        Variable request processing times
+        Weighted Least Conn	Moderate	    Per-node state	   High	        Production with mixed servers
+        IP Hash	            Simple	        Stateless	       None	        Basic session persistence
+        Consistent Hash	    Complex	        Stateless	       None	        Dynamic scaling, caching
+
+
+
+    ii. Layer 4 vs Layer 7 Load Balancing
+
+        Layer 4: A Layer 4 load balancer operates at the transport layer. It sees TCP/UDP packets but does not understand what is inside them. It makes routing decisions based only on:
+
+            i. Source and destination IP addresses
+            ii. Source and destination ports
+            iii. Protocol (TCP or UDP)
+
+            What L4 can do:
+                -> Route based on port (send traffic on port 80 to web servers, port 3306 to database servers)
+                -> Session persistence based on client IP
+                -> Health checks (TCP connection success/failure)
+
+
+        Layer 7: A Layer 7 load balancer operates at the application layer. It understands HTTP (and sometimes other protocols) and can make intelligent routing decisions based on request content.
+
+            -> Route based on URL path (/api goes to API servers, /static goes to CDN)
+            -> Route based on hostname (api.example.com vs www.example.com)
+            -> Route based on HTTP method (GET vs POST)
+            -> Terminate SSL and inspect encrypted traffic
+            -> Set and read cookies for sticky sessions
+            -> Add, modify, or remove HTTP headers
+            -> Compress responses
+            -> Cache content
+
+
+        When to Use Each
+
+
+
+    Use Layer 4 when:
+
+        -> You need maximum performance
+        -> You are load balancing non-HTTP traffic (databases, game servers, custom protocols)
+        -> Simple round-robin distribution is sufficient
+        -> You want to pass SSL through to backends
+
+
+    Use Layer 7 when:
+
+        -> You need content-based routing (URL paths, hostnames)
+        -> You want SSL termination at the load balancer
+        -> You need cookie-based sticky sessions
+        -> You want to add headers (like X-Forwarded-For or X-Request-ID)
+        -> You want to cache or compress responses

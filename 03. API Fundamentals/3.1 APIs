@@ -1,0 +1,230 @@
+-> API stands for Application Programming Interface.
+-> Think of an API as a middleman that enables applications to interact without needing direct access to each other's code or database.
+
+
+
+APIs follow a simple request-response model:
+
+    i. A client (such as a web app or mobile app) makes a request to an API.
+    ii. The API (hosted on an API server) processes the request, interacts with the necessary databases or services, and prepares a response.
+    iii. The API sends the response back to the client in a structured format (usually JSON or XML).
+
+
+
+1. How APIs Power Modern Applications:
+
+    -> Backend: The backend consists of APIs that handle data processing, business logic, and communication with databases.
+    -> Frontend: The frontend is a graphical user interface (GUI) that interacts with these APIs, making applications user-friendly and accessible without requiring users to write code.
+
+
+
+2. Types of APIs:
+
+    APIs come in different forms depending on who can access them, how they are used, and what purpose they serve.
+
+    i. Open APIs (Public APIs):
+
+        -> Open APIs, also known as Public APIs, are accessible to external developers with minimal restrictions.
+
+        -> Companies provide these APIs to encourage third-party developers to integrate their services and build new applications on top of them.
+
+        Example: YouTube Data API
+
+
+    ii. Internal APIs (Private APIs):
+
+        -> Internal APIs, also known as Private APIs, are designed exclusively for internal use within an organization. Unlike Open APIs, these are not accessible to external developers and are used to facilitate seamless communication between different internal systems within a company.
+
+
+    iii. Code Interfaces:
+
+        -> There’s another category of APIs that developers use daily: Code Interfaces (also called Library APIs or Programming APIs).
+
+        -> These APIs don’t connect different applications; instead, they provide predefined functions within a programming language or framework to make development easier.
+
+        -> Example: Instead of writing sorting algorithms from scratch, developers can use sort() or sorted() in Python.
+    
+
+
+3. API Communication Methods:
+
+    i. REST (Representational State Transfer): REST is the most widely used API communication method today. It is lightweight, stateless, and scalable, making it perfect for web services and mobile applications.
+
+        Request: GET https://api.bookstore.com/books
+
+        Response: 
+                    [
+                        {
+                            "id": 1,
+                            "title": "Clean Code",
+                            "author": "Robert C. Martin"
+                        },
+                        {
+                            "id": 2,
+                            "title": "The Pragmatic Programmer",
+                            "author": "Andrew Hunt"
+                        }
+                    ]
+
+
+
+    ii. SOAP (Simple Object Access Protocol):
+
+        -> SOAP is an older API communication method that relies on XML-based messaging.
+        -> Unlike REST, which is lightweight, SOAP is more structured and secure, making it ideal for banking, healthcare, and enterprise applications.
+        -> SOAP messages are sent using XML format and require a WSDL (Web Services Description Language) file, which defines the API's available functions and request structure.
+
+        Example:
+
+            Request: Fetching account balance
+
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bank="http://bank.example.com/">
+                <soapenv:Header/>
+                <soapenv:Body>
+                    <bank:GetAccountBalance>
+                    <bank:accountNumber>123456</bank:accountNumber>
+                    </bank:GetAccountBalance>
+                </soapenv:Body>
+                </soapenv:Envelope>
+
+            Response:
+
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bank="http://bank.example.com/">
+                    <soapenv:Body>
+                        <bank:GetAccountBalanceResponse>
+                        <bank:balance>5000.00</bank:balance>
+                        </bank:GetAccountBalanceResponse>
+                    </soapenv:Body>
+                </soapenv:Envelope>
+
+
+
+    iii. GraphQL:
+
+        -> GraphQL is an alternative to REST that allows clients to request exactly the data they need, making it more efficient for modern applications.
+        -> Unlike REST, which requires multiple API calls to fetch related data, GraphQL can fetch all necessary data in a single request.
+        -> Instead of predefined endpoints, GraphQL exposes a single API endpoint, and the client sends queries to request specific fields.
+
+        Example: 
+            
+            Request: Fetching a user's profile and their recent posts in a single request.
+
+                {
+                    user(id: 123) {
+                        name
+                        email
+                        posts {
+                        title
+                        likes
+                        }
+                    }
+                }
+
+            Response:
+
+                {
+                    "data": {
+                        "user": {
+                            "name": "Alice",
+                            "email": "alice@example.com",
+                            "posts": [
+                                {
+                                "title": "Hello World",
+                                "likes": 100
+                                },
+                                {
+                                "title": "GraphQL is Amazing!",
+                                "likes": 200
+                                }
+                            ]
+                        }
+                    }
+                }
+
+
+
+    iv. gRPC:
+
+        -> gRPC (Google Remote Procedure Call) is a high-performance API communication method that uses Protocol Buffers (Protobuf) instead of JSON or XML, making it faster and more efficient.
+        -> gRPC uses binary data format instead of text-based formats, reducing payload size and it supports bidirectional streaming, meaning the client and server can send data at the same time.
+
+
+
+4. How to Use an API (Step-by-Step Guide):
+
+    Step 1: Find an API to Use:
+        -> Before using an API, you need to identify the right API for your needs. APIs are available for different services like weather data, finance, social media, etc.
+
+        i. Where to Find APIs?
+            a. Public API directories:
+                ** get links of websites from blog: https://algomaster.io/learn/system-design/what-is-an-api
+
+                - RapidAPI – A marketplace for APIs with free & paid options.
+                - Postman API Network – A collection of public APIs.
+                - API List – A fun list of free public APIs.
+                - GitHub’s Public API List – Open-source API collection.
+
+            b. Official API Documentation:
+
+                - Google APIs
+                - X API
+                - OpenWeather API
+
+
+    Step 2: Read the API Documentation:
+        -> API documentation explains how to use the API, available endpoints, authentication, and response formats.
+
+
+
+    Step 3: Get API Access (API Key / Authentication):
+        -> Most APIs require authentication to prevent unauthorized access and manage usage limits.
+
+        Common Authentication Methods:
+
+            - API Key - A unique key provided by the API service
+            - OAuth 2.0 - Secure login via Google, Github, etc.
+            - JWT (JSON Web Token): Token-based authentication
+            - Basic Authentication: Username + password (Base64 encoded)
+
+
+
+    Step 4: Test the API Using Postman or cURL:
+
+        Option 1: Using Postman (Recommended for Beginners)
+        Option 2: Using cURL (For Command Line Users)
+
+
+
+    Step 5: Write Code to Call the API:
+        -> Now that you’ve tested the API, it’s time to integrate it into your application.
+
+
+
+    Step 6: Handle Errors & Rate Limits:
+        -> APIs don’t always return perfect responses. You should handle:
+
+        i. Invalid inputs (e.g., wrong city name).
+        ii. Authentication errors (e.g., expired API keys).
+        iii. Rate limits (e.g., exceeding request limits).
+
+
+
+    
+    Step 7: Use API Responses in Your Application:
+        -> Once you fetch data from an API, you can display it dynamically in a web or mobile app.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,34 @@
+- CAP stands for Consistency, Availability, and Partition Tolerance, and the theorem states that:
+- It is impossible for a distributed data store to simultaneously provide all three guarantees.
+
+- 3 Pillars of CAP
+    i. Consistency
+        -> Consistency ensures that every read receives the most recent write or an error. This means that all working nodes in a distributed system will return the same data at any given time.
+        -> In a consistent distributed system, if you write data to node A, a read operation from node B will immediately reflect the write operation on node A.
+        -> Consistency is crucial for applications where having the most up-to-date data is critical, such as financial systems, where a balance inquiry must reflect the most up-to-date state of an account.
+
+    ii. Availability
+        -> Availability guarantees that every request (read or write) receives a response, without ensuring that it contains the most recent write. This means that the system remains operational and responsive, even if the response from some of the nodes don’t reflect most up-to-date data.
+        -> Availability is important for applications that need to remain operational at all times, such as online retail systems.
+
+    iii. Partition Tolerance
+        -> Partition Tolerance means that the system continues to function despite network partitions where nodes cannot communicate with each other.
+        -> A network partition occurs when a network failure causes a distributed system to split into two or more groups of nodes that cannot communicate with each other.
+        -> When there is a network partition, the system must choose between Consistency and Availability.
+        -> Partition Tolerance is essential for distributed systems because network failures can and do happen. A system that tolerates partitions can maintain operations across different network segments.
+
+- The CAP Trade-Off: Choosing 2 out of 3
+        -> The CAP theorem asserts that in the presence of a network partition, a distributed system must choose between Consistency and Availability.
+        -> CP (Consistency and Partition Tolerance):
+            . These systems prioritize consistency and can tolerate network partitions, but at the cost of availability. During a partition, the system may reject some requests to maintain consistency.
+            . Traditional relational databases, such as MySQL and PostgreSQL, when configured for strong consistency, prioritize consistency over availability during network partitions.
+            . Banking systems typically prioritize consistency over availability since data accuracy is more critical than availability during network issues.
+
+        -> AP (Availability and Partition Tolerance):
+            . These systems ensure availability and can tolerate network partitions, but at the cost of consistency. During a partition, different nodes may return different values for the same data.
+            . NoSQL databases like Cassandra and DynamoDB are designed to be highly available and partition-tolerant, potentially at the cost of strong consistency.
+            . Amazon's shopping cart system is designed to always accept items, prioritizing availability.
+
+        -> CA (Consistency and Availability):
+            . In the absence of partitions, a system can be both consistent and available. However, network partitions are inevitable in distributed systems, making this combination impractical.
+            . Example Systems: Single-node databases can provide both consistency and availability but aren't partition-tolerant. In a distributed setting, this combination is theoretically impossible.

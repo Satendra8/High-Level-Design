@@ -1,0 +1,88 @@
+- Reliability is the probability that a system will perform its intended function correctly over a given period of time.
+- An available system responds. A reliable system responds correctly.
+- Reliability vs Related Concepts
+    -> Availability: Is the system responding?
+    -> Reliability: Is the response correct?
+    -> Fault Tolerance: Does it keep working when components fail?
+    -> Durability: Is data preserved despite failures?
+
+
+- Measuring Reliability
+    1. Mean Time Between Failures (MTBF)
+        -> MTBF measures the average time between failures. A higher MTBF means failures are less frequent.
+        -> MTBF = Total Operating Time / Number of Failures
+        -> Ex:  
+                - System ran for 10,000 hours
+                - Experienced 5 failures
+                - MTBF = 10,000 / 5 = 2,000 hours
+            
+                - An MTBF of 2,000 hours means you can expect one failure roughly every 83 days.
+
+
+    2. Mean Time To Recovery (MTTR)
+        -> MTTR measures how long it takes to restore the system after a failure. A lower MTTR means faster recovery.
+        -> MTTR = Total Downtime / Number of Failures
+
+        -> Ex:
+                - 5 failures occurred
+                - Total repair time: 10 hours
+                - MTTR = 10 / 5 = 2 hours per failure
+            
+                - MTTR includes detection time, diagnosis time, repair time, and verification time.
+                - Reducing MTTR often has more impact than reducing failure rate.
+                - If you cannot prevent failures, at least recover quickly.
+
+
+    3. Error Rate
+        -> Percentage of requests that result in errors.
+        -> Error Rate = Failed Requests / Total Requests × 100%
+    
+
+    4. Data Correctness
+        -> Percentage of responses that contain correct data.
+        -> Correctness = Correct Responses / Total Responses × 100%
+
+        -> This is the often-overlooked metric.
+        -> A system can have 99.99% availability and 0.01% error rate.
+        -> but if 1% of successful responses contain wrong data, you have a reliability problem.
+
+
+- Why Systems Become Unreliable
+
+    i. Hardware Failures: Disks develop bad sectors. Memory corrupts. CPUs overheat. Network cards malfunction.
+
+    ii. Software Bugs: The most dangerous bugs are those that do not crash the system but silently produce wrong results.
+
+    iii. Configuration Errors: AWS's S3 outage, Queue message not consuming
+
+    iv. Human Error
+
+    v: Overload and Cascading Failures
+
+
+
+- Key Principles of Reliable Systems: To build reliable systems, engineers typically focus on several core principles:
+
+    -> Redundancy: Redundancy means having backup components ready to take over if one part fails.
+    -> Failover Mechanisms: Failover is the process by which a system automatically switches to a redundant or standby component when a failure is detected. 
+    -> Load Balancing: Load balancing distributes incoming traffic across multiple servers.
+    -> Monitoring and Alerting: A reliable system is constantly monitored. Tools and dashboards track system health and performance, while alerting mechanisms notify engineers of issues before they escalate into major problems.
+    -> Graceful Degradation: Even when parts of the system fail, a well-designed system can still provide core functionality rather than going completely offline.
+
+
+- Techniques to Enhance Reliability
+    1. Redundant Architectures: The most fundamental reliability technique is having more components (server) than you need. If one fails, others continue operating.
+
+    2. Data Replication: Ensure your data is not stored in a single location. Use data replication strategies across multiple databases or data centers.
+
+    3. Graceful Degradation: When parts of the system fail, graceful degradation keeps the core functionality working. Instead of complete failure, the system provides reduced service.
+
+    4. Circuit Breakers: In a microservices architecture, one service failing can cascade failures throughout the system. Circuit breakers detect when a service is failing and temporarily cut off requests to prevent overload, allowing the system to recover gracefully.
+        ** Check the diagram: https://algomaster.io/learn/system-design/reliability
+
+    5. Idempotency: Idempotent operations produce the same result regardless of how many times they are executed.
+        ** Check the diagram: https://algomaster.io/learn/system-design/reliability
+
+        -> The idempotency key (abc123) allows the server to detect retries. The first execution stores the key. Subsequent executions with the same key return the stored result without re-executing.
+
+        -> Stripe, PayPal, and other payment processors require idempotency keys for money-moving operations. Without them, network issues could cause duplicate charges.

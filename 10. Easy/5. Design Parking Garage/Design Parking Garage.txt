@@ -1,0 +1,121 @@
+1. Requiremment Clarification
+
+    a. Functional Requiremment
+
+        -> Find available spot
+        -> Generate ticket
+        -> Generate price on exit
+
+    b. Non - Functional Requiremment
+
+        -> High Availability
+        -> Latency
+        -> High Relibility
+
+
+2. Metrices
+
+    Number of slots = floor * spaces = 10 * 500 = 5000
+
+    Data size for parking slot in one parking lot = parking slots * size per parking slot = 5000 * 1kb = 5MB
+
+    Data size for ticketing per Day = total parkings * size per ticket = 10000 * 100 Bytes = 1MB
+
+    Data for 10 years = 10 * 365 * 1MB = 3.65 GB
+
+    Support 1 Million parking lots
+
+        -> Need to build distributed solution
+
+
+
+3. API Design
+
+    Public Endpoint:
+
+        i. POST /reserve
+
+            Payload = {
+                garageId: 1234,
+                startTime: new Date(),
+            }
+
+            Response = {
+                spotId: 1,
+                reservationId: xxxx,
+            }
+
+        ii. POST /payment
+
+            Payload = {
+                reservationId: xxxx,
+            }
+
+            (Use Paypal, Stripe)
+
+    
+    Internal Endpoint:
+
+        i. POST /allocate-spot
+
+            Payload = {
+                garageId: 1234,
+                vehicleType: Large (Large, Small, Medium)
+            }
+
+        ii. GET /calculate-payment
+
+            Payload = {
+                reservationId: xxxx,
+            }
+        
+    
+        iii. PUT /free-spots
+
+            Payload = {
+                garageId: 1234,
+                vehicleType: Large (Large, Small, Medium)
+            }
+
+
+
+4. Database Schema
+
+    Garage
+
+        pinCode: number
+        priceSmall: number
+        priceMedium: number
+        priceLarge: number
+
+    Spot
+
+        garageId: number
+        vehicleType: VehicleTypeEnum
+        status: StatusEnum
+
+    Vehicles
+
+        vehicleType: VehicleTypeEnum
+        licenseNo: string
+
+    ParkingLot
+
+        garageId: number
+        spotId: number
+        startTime: timestamp
+        endTime: timestamp
+        isPaid: boolean
+
+
+    VehicleTypeEnum  {
+        SMALL,
+        MEDIUM,
+        LARGE
+    }
+
+    StatusEnum {
+        FREE,
+        OCCUPIED,
+        UNDER_MAINTAINENCE
+    }

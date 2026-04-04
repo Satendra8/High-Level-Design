@@ -1,0 +1,104 @@
+1. What is Idempotency?
+
+    -> In mathematics, an operation is idempotent if applying it multiple times produces the same result as applying it once.
+
+    -> For example, the absolute value function is idempotent: ||-5|| = |-5| = 5.
+
+    -> Idempotency is a property of certain operations whereby executing the same operation multiple times produces the same result as executing it once.
+
+    -> For example: If a request to delete an item is idempotent—all requests after the first will have no impact.
+
+    -> In programming, setting a value is idempotent, while incrementing a value is not.
+
+    -> Idempotent: user.status = 'active'  
+    -> Not Idempotent: user.login_count += 1
+    -> Some operations are naturally idempotent.
+    -> UPDATE users SET status = 'active' WHERE id = 123;
+    -> No matter how many times you run this, the result remains the same.
+
+
+
+    Why Idempotency Matters
+
+        - Distributed systems often require fault tolerance to ensure high availability. When a network issue causes a timeout or an error, the client might retry the request.
+
+        - If the system handles retries without idempotency, every retry could change the system’s state unpredictably.
+
+        - By designing operations to be idempotent, engineers create a buffer against unexpected behaviors caused by retries.
+
+        - This “safety net” prevents repeated attempts from distorting the outcome, ensuring stability and reliability.
+
+
+
+2. Strategies to Implement Idempotency
+
+    i. Unique Request Identifiers
+
+        - One of the simplest techniques to achieve idempotency is by attaching a unique identifier, often called an idempotency key to each request.
+        - When a client makes a request, it generates a unique ID that the server uses to track the request. If the server receives a request with the same ID later, it knows it’s a duplicate and discards it.
+
+        ** see the code on the blog: https://algomaster.io/learn/system-design/idempotency
+
+
+    ii. Database Design Adjustments (Upsert Operation)
+
+        - Some database operations, such as inserting the same record multiple times, can lead to unintended duplicate entries.
+        - Achieving idempotency in these cases often requires redesigning the database operations to be inherently idempotent.
+        - This can involve using upsert operations (which updates a record if it exists or inserts it otherwise) or applying unique constraints that prevent duplicates from being added in the first place.
+
+
+        INSERT INTO inventory (item_id, stock)
+        VALUES (1, 10)
+        ON CONFLICT (item_id) DO UPDATE
+        SET stock = inventory.stock + EXCLUDED.stock;
+
+        - This SQL statement inserts a new item if it doesn't exist. If it does exist (conflict on item_id), it updates the stock by adding the new stock quantity, ensuring the operation remains idempotent.
+
+
+    iii. Idempotency in Messaging Systems
+
+        - In a messaging system, we can enforce idempotency by storing a log of processed message IDs and checking against it for every incoming message.
+        - Each message has a unique messageId. Before processing, we check if the messageId is already in processedMessages. If it is, the message is ignored; otherwise, it’s processed and added to the set to avoid duplicates.
+
+
+    iv. Idempotency in HTTP Methods
+        
+        a. Idempotent Methods:
+
+            - GET
+            - PUT
+            - DELETE
+
+        b. Non-Idempotent Methods:
+
+            - POST
+            - PATCH
+
+
+
+3. Challenges and Considerations
+
+    While idempotency is powerful, it comes with its own set of challenges:
+
+    i. Performance Overhead: Storing idempotency keys or checking for duplicate operations can add overhead and increase the overall latency.
+    ii. State Management: Idempotency often requires maintaining state, which can be challenging in stateless architectures.
+    iii. Distributed Systems: Ensuring idempotency across distributed systems can be challenging and may require distributed locking or consensus algorithms.
+    iv. Time Window: How long should idempotency guarantees be maintained? Forever, or for a limited time?
+    v. Database Constraints: Not all operations are idempotent by default; unique constraints or upsert logic may be necessary to avoid duplication.
+
+
+
+4. Best Practices
+
+    When implementing idempotency in your system, consider these best practices:
+
+    i. Use Unique Identifiers: Attach a unique ID (idempotency key) to each request to track and prevent duplicate processing.
+    ii. Design for Idempotency from the Start: It's much easier to design for idempotency from the beginning than to add it later.
+    iii. Implement Retry with Backoff: When retrying idempotent operations, use an exponential backoff strategy to avoid overwhelming the system.
+    iv. Employ Idempotent HTTP Methods: Prefer idempotent methods (GET, PUT, DELETE) for operations that may be retried; design POST with unique identifiers if idempotency is required.
+    v. Document Idempotent Operations: Clearly document which operations are idempotent in your API specifications.
+    vi. Test Thoroughly: Implement tests that verify the idempotency of your operations, including edge cases and failure scenarios.
+    vii. Use Locks or Versioning: Use locks, optimistic concurrency control, or version numbers to manage simultaneous requests safely.
+
+
+    Idempotency is a powerful concept in distributed systems that can greatly enhance the reliability and fault-tolerance of your systems.

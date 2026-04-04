@@ -1,0 +1,134 @@
+1. Kafka
+2. MongoDB vs Cassandra vs Cosmos vs Dynamo DB
+3. ClickHouse DB
+4. Browser Cache
+5. CDN Cache
+6. Free tool to create HLD diagram, which has DB, Load Balancer, Diagrams
+7. Graph Database
+
+
+
+
+Plactical
+
+1. GraphQL
+2. Kafka
+3. RAG
+
+
+
+1. Data Model Philosophy
+
+    MongoDB
+
+        JSON-like documents
+        Developer-friendly
+        Easy to evolve schema
+
+
+    Cassandra
+
+        Wide-column (like distributed BigTable)
+        Designed for huge write throughput
+
+
+    DynamoDB
+
+        Key-value + limited document
+        Requires access-pattern-first design
+
+
+    Cosmos DB
+
+        Cosmos DB is a NoSQL document database.
+        it stores data as JSON documents inside containers.
+        It is schema-less and designed for global distribution.
+
+
+2. Scaling & Performance
+
+    MongoDB
+        Scales via sharding
+        Good but not as seamless as others
+
+
+    Cassandra
+
+        Linear scalability
+        No single point of failure
+        Handles massive write-heavy workloads
+
+
+    DynamoDB
+
+        Auto scaling
+        Handles millions of requests/sec
+        No infra management
+
+
+    Cosmos DB
+
+        Multi-region writes
+        Low latency globally
+
+
+3. Query Capability
+
+      DB	          Query Power
+    MongoDB	    Rich queries, aggregation
+    Cassandra	Limited (no joins)
+    DynamoDB	Very limited
+    Cosmos DB	SQL-like (depends on API)
+
+
+4. Consistency Models
+
+    MongoDB → Strong consistency
+    Cassandra → Tunable (eventual by default)
+    DynamoDB → Eventual (default) + optional strong
+    Cosmos DB → 5 levels (very flexible)
+
+
+
+
+When to Use
+
+    Use MongoDB
+
+        Complex queries
+        Fast development
+        Flexible schema
+
+        Example:
+            CMS
+            Product catalogs
+
+
+    Use Cassandra
+
+        Write-heavy systems
+        Huge scale (TB–PB data)
+        Distributed systems
+
+        Example:
+            Logs, IoT, messaging
+
+
+    Use DynamoDB
+
+        AWS ecosystem
+        Predictable latency
+        High traffic APIs
+
+        Example:
+            Session store
+            Order systems at scale
+
+    
+    Use Cosmos DB
+        Multi-region apps
+        Global users
+        Need flexible consistency
+
+        Example:
+            Global SaaS apps

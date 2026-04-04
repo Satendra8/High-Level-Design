@@ -1,0 +1,115 @@
+Circuit Breaker Pattern
+
+    -> The Circuit Breaker design pattern is used to stop the request and response process if a service is not working, as the name suggests.
+
+    ** see the diagram on: https://medium.com/geekculture/design-patterns-for-microservices-circuit-breaker-pattern-276249ffab33
+
+    Example: Assume a consumer sends a request to get data from multiple services. But, one of the services is unavailable due to technical issues. There are mainly two issues you will face now.
+
+        - First, because the consumer will be unaware that a particular service is unavailable (failed), so the requests will be sent to that service continuously.
+        - The second issue is that network resources will be exhausted with low performance and user experience.
+
+    -> You can leverage the Circuit Breaker Design Pattern to avoid such issues. The consumer will use this pattern to invoke a remote service using a proxy. This proxy will behave as a circuit barrier.
+
+    -> When the number of failures reaches a certain threshold, the circuit breaker trips for a defined duration of time.
+
+    -> During this timeout period, any requests to the offline server will fail. When that time period is up, the circuit breaker will allow a limited number of tests to pass, and if those requests are successful, the circuit breaker will return to normal operation. If there is a failure, the time out period will start again.
+
+
+
+The main use case for Circuit Breaker
+
+
+    -> Suppose You have implemented employee management for Mercantile Finance with microservice architecture. This system has the below services.
+
+        🔩 Service 1: get personal information.
+        🔩 Service 2: get leave information.
+        🔩 Service 3: get employee performance information.
+        🔩 Service 4: get allocation information.
+
+    -> It's very much possible when there are multiple services, those services call (using aggregator pattern) for multiple backends(services).
+    -> So that all you want to know about the main use case scenario. Now let's see why availability is very critical for microservices.
+
+
+
+Why availability is critical in Microservices Architecture
+
+    -> So assume that, when your company implemented these services of the employee management system, they promised an uptime of 99.999% (five nines) to Mercantile finance.
+
+    -> Assume One service can be down 5.256 minutes per year. A downtime of 5.25 minutes per year is totally fine for a monolithic system.
+
+    -> But unlike monolithic architecture, in a microservice architecture, there could be many services. Assume that there 100 services. This could cost 8.78 hours of downtime per year. Now that’s a critical number . This is why we need to pay attention to protect our services.
+
+
+
+
+
+What are the causes to break the services ?
+
+
+    Use Case 1:
+
+        -> Assume that you have 5 different services and you have a webserver to call these services. Now when a request is received, the server allocates one thread to call the service.
+        -> Now what happens is that this service is a little delayed (due to a failure) and this thread is waiting. One thread waiting would be fine.
+        -> But if this service is a high demand service (gets more and more requests), more threads will be allocated for this service and all the threads allocated to call the service will have to wait.
+        -> So, if you had 100 threads now 98 of them could be occupied and if the other two threads are occupied by another 2 services all the threads are now blocked.
+        -> Now what happens is the remaining requests the reach your service will be queued (blocked). So meanwhile 50 more requests also came and all of them were queued because threads were feezed.
+        -> Then a few seconds later the failed service recovers back. Now the webserver tries to process all the requests in the queue. As a result, the webserver (or the proxy) may never recover. The reason is when the webserver processes queue request more and more requests reach continuously. So, this type of scenario will kill your service.
+
+
+    Use Case 2:
+
+        -> In this scenario, service A calls B, service B calls C, service C calls D. Meanwhile there are also other services W, X, Y and Z. But what would happen if a service could not respond on time ?
+        -> Assume service D failed to respond on time.
+        -> Now the service C will have to wait.
+        -> Since service C is waiting, service B also will have to wait. So accordingly, service A will have to be waiting. This can cause cascade failure.
+        -> No matter how your service failed but when the service failed it will go offline. So what can we do to keep these services up and running ?
+
+    
+
+Solution with Circuit Breaker pattern
+
+    -> So, as I mentioned above (in “Main use case for Circuit Breaker”) there are 04 services and a proxy (an aggregator pattern to call those services) in the system.
+    -> After going through the use cause 1 and 2, I’m sure now you know that system failures could happen when an individual service failed (supplier become unresponsive)
+    -> Then it could lead the system to run out of critical resources (ex: remember how threads were occupied in use case 1).
+    -> The circuit breaker’s basic concept is to wrap a protected function call in a circuit breaker object that monitors for failures. When the number of failures reaches a certain threshold, the circuit breaker trips, and all requests to the circuit breaker return with an error.
+
+
+
+
+The Circuit Breaker pattern has 3 states.
+
+    i. Open.
+    ii. Closed.
+    iii. Half-Open.
+
+
+    -> The circuit breaker works (pass requests through the service) normally when it is in the “closed” state. But when the failures exceed the threshold limit, the circuit breaker trips. As seen in the above diagram, this “opens” the circuit (state switches to “open”).
+    -> When the circuit is “open” incoming requests will return with error without any attempt to execute the real operation
+    -> After a duration of time, the circuit breaker goes into the “half-open” state. In this state, the circuit breaker will allow a limited number of test requests to pass through and if the requests succeed, the circuit breaker resets and returns to the “closed” state and the traffic will go through as usual. If this request fails, the circuit breaker returns to the open state until another timeout.
+    -> So how the circuit breaker pattern works is, if the number of requests (ex: 75% of requests) is reaching the upper threshold (150–200ms) that means the service is failing slowly.
+    -> If the number of occurrences exceeds 200ms (the maximum threshold given for the service) the proxy will identify that this service is not responding anymore.
+    -> What it does next is the request which comes to access service A will failback. it breaks the connection between your proxy and service A.
+    -> Now your proxy will not go to service A. That means it will not wait.
+
+
+
+But why not directly go to the service and see. If it’s failing the request can go back. Why is it necessary to have something in between?
+
+    -> Assume you have a 30 seconds timeout. If each request is trying to reach service A, without considering it failing all the requests which come from the consumer will wait 30 seconds. End of the 30 seconds these requests will timeout.
+    -> During that 30 seconds, the remaining requests that come to consume A will try to reach service A and those are also going and wait in the queue.
+    -> So, what the circuit breaker pattern does is, if the service is failing more than the given threshold, it will not try to reach service A, instead it will fail back to the consumer saying service A is not available.
+
+
+So how is it going to connect back?
+
+    -> In the background, it sends a ping request (Figure 16) or a default request to service A in a timely manner. So, when the response time comes back to the normal threshold it will turn on the request again.
+    -> So, the next requests that are reaching to consume service A will directly go to service A
+    -> During the failure time all the requests that come to consume service A are sent back with an error message. So now there is no queue. When the service back online it will be open for new traffic.
+
+
+
+
+
+From the user’s perspective, having to wait a long time for a response is not a good user experience. Rather than keeping the consumer waiting for a longer duration, it is better to respond quickly. It doesn’t matter if it’s a success or a failure; what counts is that the user isn’t kept waiting.
+

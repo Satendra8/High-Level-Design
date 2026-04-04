@@ -1,0 +1,126 @@
+What is REST?
+
+    -> REST is an architectural style for designing networked applications.
+    
+    Key Characteristics of REST:
+
+        - Resource-Oriented: REST treats everything as a resource, such as users, products, or orders. Each resource is identified by a unique URL.
+        - Stateless: RESTful services are stateless, meaning each request from a client to a server must contain all the necessary information for the server to understand and process the request.
+        - The server does not store any session state about the client between requests.
+        - Standard HTTP Methods: REST leverages the existing HTTP methods (GET, POST, PUT, DELETE) to perform operations on resources.
+        - Client-Server Architecture: REST strictly follows the client-server model, where the client handles the user interface and the server manages the data.
+        - Cacheable: REST responses can be cached to improve performance and scalability.
+
+
+    Advantages of REST:
+
+        i. Scalability: RESTful APIs are scalable due to their stateless nature and the use of standard HTTP methods.
+        ii. Flexibility: REST is flexible and allows different data formats, such as JSON, XML, or plain text.
+        iii. Standardization: RESTful APIs follow a standardized approach that makes them easy to understand and implement.
+        iv. Wide Adoption: REST is widely supported and used across the web, making it easy to find tools, libraries, and community support.
+
+
+    Disadvantages of REST:
+
+        i. Verbosity: REST can be verbose, especially when dealing with complex objects or relationships.
+        ii. Over-fetching/Under-fetching: Clients may receive more data than needed (over-fetching) or less data than needed (under-fetching), leading to inefficiencies.
+        iii. Limited Actions: REST is resource-centric, which can make it challenging to model complex actions that do not fit neatly into CRUD operations.
+
+
+
+    
+What is RPC?
+
+
+    -> RPC, or Remote Procedure Call, is a protocol that allows a program to execute a procedure (subroutine) on another address space (commonly on another physical machine) as if it were local.
+    -> RPC abstracts the complexity of the communication process, allowing developers to focus on the logic of the procedure.
+
+    
+    Key Characteristics of RPC:
+
+        - Action-Oriented: Unlike REST, which is resource-oriented, RPC is action-oriented. It focuses on invoking specific methods or procedures.
+        - Function Calls: RPC allows you to call functions or methods directly on a remote server. The client sends a request to execute a specific method, and the server returns the result.
+        - Variety of Protocols: RPC can be implemented using different protocols, such as JSON-RPC, XML-RPC, or gRPC (Google Remote Procedure Call).
+        - Less Overhead: RPC often has less overhead than REST, which can make it faster and more efficient in certain scenarios.
+        - Synchronous Communication: Traditional RPC is synchronous, meaning the client waits for the server to complete the called procedure and return the results.
+        - Interface Definition Language (IDL): RPC systems often use an IDL to define the interface between the client and server.
+
+    
+    Example of an RPC API:
+
+        Get a list of all books:
+
+            {
+                "jsonrpc": "2.0",
+                "method": "getBooks",
+                "params": {},
+                "id": 1
+            }
+
+        
+        Get a specific book by ID:
+
+            {
+                "jsonrpc": "2.0",
+                "method": "getBookById",
+                "params": {"id": 1},
+                "id": 2
+            }
+
+        Add a new book:
+
+            {
+                "jsonrpc": "2.0",
+                "method": "addBook",
+                "params": {"title": "New Book", "author": "Author Name"},
+                "id": 3
+            }
+
+
+
+    Advantages of RPC:
+
+        i. Simplicity: RPC can be simpler to implement when you need to perform specific actions, as it directly maps to method calls.
+        ii. Performance: RPC can offer better performance due to its lower overhead compared to REST.
+        iii. Flexibility in Actions: RPC is more flexible in handling complex operations that do not fit the CRUD model.
+
+
+    Disadvantages of RPC:
+
+        i. Tight Coupling: RPC can lead to tight coupling between the client and server, making it harder to change or update the API without affecting clients.
+        ii. Less Standardization: Unlike REST, which uses standard HTTP methods, RPC does not follow a standardized approach, which can lead to inconsistencies.
+        iii. Limited Tooling: While there are tools for RPC, they are not as widely adopted as REST tools, which can make development and debugging more challenging.
+
+
+
+
+When to Choose REST or RPC
+
+    Choose REST when:
+
+        i. Building public-facing APIs
+        ii. You need maximum scalability and flexibility
+        iii. Your API consumers are diverse and unknown
+        iv. You want to leverage HTTP features (caching, proxies)
+        v. Your operations map well to CRUD actions on resources
+
+
+    Choose RPC when:
+
+        i. Building internal microservices
+        ii. You need maximum performance
+        iii. You have complex operations that don't map well to CRUD
+        iv. Your client and server are tightly coupled
+        v. You're working in a homogeneous environment
+
+
+
+Conclusion
+
+    -> Choosing between REST and RPC is not a one-size-fits-all decision. It depends on your specific use case, performance requirements, scalability needs, and the nature of the operations you're performing.
+
+    -> REST remains a solid choice for public APIs and web services due to its scalability, flexibility, and widespread adoption.
+
+    -> RPC, especially modern implementations like gRPC, can be more efficient for internal communication between microservices or for complex operations.
+
+

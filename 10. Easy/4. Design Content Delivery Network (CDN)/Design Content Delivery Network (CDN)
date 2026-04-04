@@ -1,0 +1,137 @@
+1. Requiremment Clarification
+
+    i. Functional Requirement
+
+        -> Should retrive content from origin servers
+        -> Must process requests from end-users
+        -> Efficiently deliver cached content to end-users
+        -> Efficiently search and locate cached content
+        -> Should invalidate outdated cached content & remove it
+
+    ii. Non-Functional Requirements
+
+        -> Low Latency
+        -> High Availability
+        -> Global Systems
+
+
+
+2. Metrices
+
+    Metric	                Value
+
+    Daily users	            100M
+    Requests/day	        3B
+    Peak RPS	            ~100K
+    Avg file size	        200 KB
+    Bandwidth	            ~20 GB/sec
+    Storage	                ~100–500 TB
+    Edge cache	            ~1–5 TB per region
+
+
+
+3. High Level Design
+
+    Basic architecture flow:
+
+        User → DNS → Nearest Edge Server → Cache
+                                            |
+                                            | (cache miss)
+                                            ↓
+                                            Regional Server
+                                            |
+                                            | (cache miss)
+                                            ↓
+                                            Origin Server
+
+    Cache Hierarchy (Multi-Layer Caching)
+
+        User
+        ↓
+        Edge Cache (L1)
+        ↓
+        Regional Cache (L2)
+        ↓
+        Origin Server
+
+
+
+    Different Caching Strategy
+
+
+        1. PULL CDN (On Demand Retrival):
+
+            Benifits:
+
+                -> Efficient resource utilization
+                -> Dynamic content support
+                -> scalability
+                -> Lower bandwidth usage
+
+
+            Cost:
+
+                -> Latency per cache misses
+                -> Overhead on origin server
+                -> Freshness of content
+
+        
+        2. PUSH CDN (On Demand Retrival)
+
+            Benefits:
+
+                -> Low Latency
+                -> Reduced origin server load
+                -> Optimized for static content
+
+            Costs:
+
+                -> Resource utilization and long tail
+                -> Limited dynamic content support
+                -> Potential for stale data
+
+            
+        3. PULL CDN & PUSH CDN (Hybrid)
+
+            -> PUSH only popular content
+
+            -> PULL only on demand content
+
+
+    Multi Tear CDN
+
+        User --> Edge CDN --> Regional CDN --> Origin Server
+
+    
+    Edge Server Selection
+
+                DNS
+              /
+             /  (IP Address)
+        User
+             \
+              \ 
+                Edge Server --> Regional Server --> Origin Server
+
+
+
+    
+    Cache Invalidation
+
+
+        i. Polling
+                                       polling
+            User ------> Edge Server ---------->  Origin Server
+
+
+        ii. TTL 
+
+            User ------> Edge Server ---------->  Origin Server
+
+                        TTL: 3600 seconds
+
+        iii. Etags
+         
+            User ------> Edge Server ---------->  Origin Server
+
+                          Etag: 123                Etag: 124

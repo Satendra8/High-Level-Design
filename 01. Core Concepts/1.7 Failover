@@ -1,0 +1,47 @@
+-> Failover is the ability to switch automatically and seamlessly to a reliable backup system. When a component or primary system fails.
+-> To achieve redundancy upon the abnormal failure or termination of a formerly active version, a standby database, system, server, or other hardware component or network must always stand ready to automatically switch into action.
+
+
+How Failover works:
+    -> Failover automation in servers includes pulse or heartbeat conditions. That is, heartbeat cables connect two servers or multiple servers in a network with the primary server always active.
+    -> As long as the heartbeat continues or it perceives the pulse, the secondary server merely rests.
+    -> However, should the secondary server perceive any change in the pulse from the primary failover server, it will initiate its instances and take over the primary server’s operations.
+    
+
+
+Most common configurations for high availability (HA):
+
+    i. Active-active:
+        - At least two nodes actively and simultaneously running the same sort of service comprise an active-active high availability cluster.
+        - The active-active cluster distributes workloads across all the nodes more evenly, preventing any single node from overloading and achieving load balancing. And because more nodes remain available, throughput and response times improve.
+    
+    
+    
+    ii. active-passive or active-standby
+        - An active-passive cluster, although there must be at least two nodes, not all of them are active.
+        - In a two node system with the first node active, the second node will remain passive or on standby as the failover server.
+        - In this standby operational mode, it can remain ready should the active, primary server stop functioning to serve as a backup.
+
+
+    
+What is a failover cluster:
+    -> A failover cluster is a set of computer servers that provide fault tolerance (FT), continuous availability (CA), or high availability (HA) together.
+    -> Failover cluster network configurations may use virtual machines (VMs), physical hardware only, or both.
+
+
+What is an application server failover:
+    -> Application servers are simply servers that run applications. This means that application server failover is a failover strategy to protect these types of servers.
+    -> At a minimum, these application servers should have unique domain names, and ideally they should run on different servers. Failover cluster best practices typically include application server load balancing.
+
+
+What is Failover testing:
+    -> Failover testing validates a system’s capacity during a server failure to allocate sufficient resources toward recovery. In other words, failover testing assesses failover capability in servers.
+
+
+
+What is failover and failback:
+    -> Failover: In computing and related technologies such as networking, failover is the process of switching operations to a backup recovery facility.
+
+    -> Failback: A failback operation involves returning production to its original location after a scheduled maintenance period or a disaster. It is the return from standby to fully functional.
+
+    

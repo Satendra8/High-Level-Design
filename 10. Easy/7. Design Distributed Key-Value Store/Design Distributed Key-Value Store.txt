@@ -1,0 +1,164 @@
+1. Requiremment Clarification
+
+    a. Functional Requiremment
+
+        -> key value pair
+        -> key must be unique
+        -> key ----> plain text, hash key (25CD1111)
+        -> value - string, list, objects
+        -> put(key, value)
+        -> get(key)
+        -> delete(key)
+
+    b. Non Functional Requiremment
+
+        -> High Availability
+        -> Scalibility
+        -> Reliability
+        -> Tunable Consistency
+        -> Low Latency
+
+    
+2. Metrices
+
+    key-value pair size = 10 KB
+    can be able to store big Data
+
+
+
+Single Server Key Value Store
+
+    -> Memory access is fast, but memory limited, space constraint
+
+Optmize more
+
+    -> store data after compress
+    -> store frequent data in memory (RAM)
+    -> store less frequent data in DISK
+
+
+
+Distributed Key Value Store
+
+
+    CAP Theorem
+
+        C - Consistency - same data across all node
+        A - Availability - always avalable even if something fails
+        P - Partition Tolerence - communication break between 2 nodes
+
+
+
+        CP - sacrify Availability
+        AP - sacrify Consistency
+        CA - sacrify Partition Tolerence (myth)
+
+
+        since network failure is unavoidable CA is not possible
+
+
+API Design:
+
+        -> key ----> plain text, hash key (25CD1111)
+        -> value - string, list, objects
+        -> put(key, value)
+        -> get(key)
+        -> delete(key)
+
+
+HLD
+    Components
+
+        Data Partition, Data Replication, Consistency
+
+        Inconsistency Resolution, Handling Failures
+
+        System Architecture Design
+
+        Write Path, Read Path
+
+
+
+        1. Data Partition
+
+            split data in small partitions and move to multiple Servers
+
+            Two challenges:
+                -> Distribute data across multiple servers evenly
+                -> minimize data movement when nodes are added or removed
+
+            Consistent Hashing (use virtual server to avoid un even distribution)
+
+
+        2. Data Replication
+
+            for high Availability and Reliability
+            data must be replicated to n server on different locations
+
+
+        3. Consistency
+
+            data must be same on all nodes at a time
+
+            Tunable consistency
+
+                N: number of replicas
+                W: write quorum of size W
+                R: read quorum of size R
+
+                W: for write operation to be successful, when W replicas ACKNOWLEDGE
+
+                R: for read operation to be successful, wait for the response of R replica
+
+
+                W = 1: fast write
+                R = 1: fast read
+
+                W or R > 1: consistency high, but latency high
+
+                W+R > N: strong consistency guranteed
+
+
+
+                Eg: W = 2, R = 2, N = 3
+
+                    4 > 3  strong consistency guranteed
+
+
+
+
+                R = 1, W = N (fast read)
+                R = N, W = 1 (fast write)
+                W + R > N (strong consistency)
+
+
+            depending on Requiremment you can tune W, R and N.
+
+        
+
+            Consistency Models:
+
+                i. Strong Consistency: client never see out dated data
+                ii. Weak Consistency: subsequent read operation may not see latest data always
+                iii. Eventual Consistency: Given enough time, all updated propogated to replica and they are updated
+
+
+            
+            What we be used in key value store?
+
+                we shall use Eventual Consistency
+
+                    -> High availability
+                    -> Low latency
+                    -> Horizontal scalability
+
+                Dynamo & Cassendra also adopted Eventual Consistency
+
+
+
+        4. Inconsistency Resolution:
+
+            Replication gives high availability, but causes Inconsistencies among replicas
+
+            
+

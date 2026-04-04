@@ -1,0 +1,66 @@
+1. Requiremment Clarification (5-7 m)
+
+    a. Functional Requiremment
+
+    b. Non - Functional Requiremment
+
+        -> High Availability
+        -> Latency
+        -> High Relibility
+        -> Bandwidth Usage
+        -> Scalibility
+        -> Consistency
+        -> Data Retention
+
+
+2. Metrices (Numbers) (5-7 m)
+
+    -> Total Number of Users
+    -> Daily Active Users (DAU)
+    -> Transaction Per Second
+    -> Bandwidth (In terms of GB)
+    -> Storage Capacity
+    -> QPS (Query per second)
+
+
+
+3. API Design (5-7 m): prefix => /api/v1
+
+    Reads (GET)
+
+        api/v1/user/profile
+        api/v1/posts/
+
+    Write (POST)
+
+        api/v1/user/register
+        api/v1/posts/create
+
+
+
+4. Database Schema (Which DB to use) (5-7 m)
+
+    User
+        id: int
+        name: string
+
+    Post
+        userId: int
+        id: int
+        desc: string
+        createdAt:
+        updatedAt:
+
+
+    
+5. HLD (Make flow chart) (10-15 m)
+
+    DNS, CDN, Load Balancer, Web Servers, Blob/Object Storage, DB, Cache, Messaging Queues for Async
+
+
+6. LLD (Partitioning / Sharding) (5-10 m)
+
+
+
+7. Barg it all in One (2-3 min)
+

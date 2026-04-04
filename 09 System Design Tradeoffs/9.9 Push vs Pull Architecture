@@ -1,0 +1,90 @@
+Push Architecture
+
+    -> In a push architecture, data or updates are sent from a central server or source to clients as soon as they become available.
+
+    -> The server initiates the communication, pushing information to clients without waiting for a specific request.
+
+    Examples
+
+        - Notifications Systems: Mobile push notifications that alert users to new messages, updates, or events.
+        - Live Feeds: Real-time data feeds like stock market tickers or social media updates.
+        - Streaming Services: Video or music streaming platforms that push content to users.
+
+
+
+    Advantages
+
+        i. Timely Updates: Ensures clients receive the latest information immediately, which is critical for real-time applications.
+        ii. Reduced Latency: Minimizes the delay between data availability and client reception.
+        iii. Efficient Resource Utilization: Reduces unnecessary network traffic and server load caused by frequent polling.
+
+
+    Disadvantages
+
+        i. Scalability Challenges: Managing a large number of client connections can be resource-intensive for the server.
+        ii. Complex Implementation: Requires sophisticated infrastructure to handle real-time data delivery and client management.
+        iii. Network Dependency: Relies on a stable network connection for timely data delivery, which can be a limitation in unreliable network environments.
+
+
+
+
+Pull Architecture
+
+    -> In a pull architecture, clients request data or updates from the server as needed.
+    -> The client initiates the communication, pulling information from the server when it requires specific data.
+
+
+    Examples
+
+        - Web Browsing: Browsers request web pages or resources from servers as needed.
+        - APIs: RESTful APIs where clients request data from a server.
+        - Database Queries: Applications querying a database to retrieve specific data.
+
+
+    Advantages
+
+        i. Scalability: Easier to scale as clients manage their own request frequency, reducing server load.
+        ii. Simpler Implementation: Generally easier to implement and manage, especially for applications with sporadic data needs.
+        iii. Client Control: Clients have more control over when and what data they receive, reducing unnecessary data transfers.
+
+
+    Disadvantages
+
+        i. Higher Latency: Clients may experience delays waiting for the next polling interval or in making requests.
+        ii. Increased Traffic: Frequent polling can lead to increased network traffic and server load.
+        iii. Stale Data: Clients may have outdated information between polling intervals, which can be problematic for real-time applications.
+
+
+
+
+When to Use Each Approach
+
+    Choose Push Architecture When:
+
+        i. Building real-time or near-real-time systems (e.g., live dashboards, instant messaging)
+        ii. Dealing with time-sensitive data (e.g., stock prices, emergency alerts)
+        iii. Working with sources that produce data at unpredictable intervals
+        iv. Bandwidth efficiency is crucial, and you want to avoid unnecessary data transfers
+
+    
+    Choose Pull Architecture When:
+
+        i. Building systems that can tolerate some delay in data updates
+        ii. Working with stable, predictable data sources
+        iii. Implementing systems where receivers need to control their data intake
+        iv. Dealing with unreliable network conditions where failed pushes could lead to data loss
+
+
+
+    In practice, many systems use a combination of push and pull architectures to leverage the strengths of both approaches.
+
+    Some common hybrid patterns include:
+
+        i. Long Polling: The receiver initiates a connection but keeps it open, allowing the source to push data when available
+        ii. Server-Sent Events (SSE): Enables servers to push data to web clients over HTTP connections
+        iii. WebSockets: Provides full-duplex communication channels over a single TCP connection
+        iv. Pub/Sub with Pull: Use a publish-subscribe model for real-time events, but allow subscribers to pull historical data.
+
+
+    -> The choice between push and pull architectures isn't always straightforward. Each approach has its strengths and weaknesses, and the best choice depends on your specific use case, performance requirements, and the nature of your data sources and consumers.
+

@@ -1,0 +1,38 @@
+1. Requiremment Clarification
+
+    a. Functional Requiremment
+
+        -> Ability to select an item
+        -> Ability to pay for an item
+        -> Notify the owner about inventory and change status
+
+    b. Non - Functional Requiremment
+
+        -> High Relibility (avoid inventory mismatch)
+
+
+2. Metrices
+
+    1 user will use 1 machine at a time
+
+
+
+3. State diagram
+
+    Ready -----Selecting an item----> Payment ------Success-------> Dispense the item
+
+        |                               | |
+        |                               | |
+        -------------Failure------------- |
+                                          |
+                                        Dispense Change
+
+
+
+4. HLD: see the diagram
+
+
+    Push Notification Service (External)
+
+        Firebase Cloud Messaging (FCM) (Android/Web)
+        Apple Push Notification Service (APNs) (iOS)

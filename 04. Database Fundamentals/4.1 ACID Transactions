@@ -1,0 +1,170 @@
+- Transaction: A transaction in the context of databases is a sequence of one or more operations (such as inserting, updating, or deleting records) that the database treats as one single action. It either fully succeeds or fully fails, with no in-between states.
+
+1. Atomicity: Atomicity ensures that a transaction—comprising multiple operations—executes as a single and indivisible unit of work: it either fully succeeds (commits) or fully fails (rolls back).
+
+    -> How Database implement Atomicity
+        i. Transaction Logs (Write-Ahead Logs)
+            . Every operation is recorded in a write-ahead log before it’s applied to the actual database table.
+            . If a failure occurs, the database uses this log to undo incomplete changes.
+
+            Eg: [TRANSACTION LOG ENTRY]
+                Transaction Id: 12345
+                Actions to perform:
+
+                1) UPDATE accounts SET balance = balance - 100 where account_id = 1;
+                2) UPDATE accounts SET balance = balance + 100 where account_id = 1;
+
+        ii. Commit/Rollback Protocols
+            . Databases provide commands like BEGIN TRANSACTION, COMMIT, and ROLLBACK
+            . Any changes made between BEGIN TRANSACTION and COMMIT are considered “in-progress” and won’t be permanently applied unless the  
+                transaction commits successfully.
+            . If any step fails, or if you explicitly issue a ROLLBACK, all changes since the start of the transaction are undone.
+
+            Eg: BEGIN TRANSACTION;
+
+                UPDATE user SET usename = newUserName WHERE id = 123;
+
+                INSERT INTO user_logs (user_id, action, timestamp) VALUES (123, 'Updated username', NOW());
+
+                COMMIT; -- If everything went well commit the transaction
+
+
+
+2. Consistency: Consistency ensures that any transaction will bring the database from one valid state to another valid state—never leaving it in a 
+                broken or “invalid” state.
+
+                Eg: BEGIN TRANSACTION;
+
+                INSERT INTO orders (product_id, quantity) VALUES (101, 10);
+
+                UPDATE products SET stock_quantity = stock_quantity - 10 WHERE product_id = 101; -- check constraints if stock quantity goes below 0, this violates the rule.
+
+                COMMIT;
+
+    -> How to Implement Consistency
+        
+        i. Database Schema Constraints
+            . NOT NULL, UNIQUE, PRIMARY KEY, FOREIGN KEY, CHECK constraints, and other schema definitions ensure no invalid entries are allowed.
+        
+        ii. Triggers and Stored Procedures
+            . Triggers can automatically check additional rules whenever rows are inserted, updated, or deleted.
+            . Stored procedures can contain logic to validate data before committing.
+
+        iii. Application-Level Safeguards
+            . While the database enforces constraints at a lower level, applications often add extra checks—like ensuring business rules are 
+                followed or data is validated before it even reaches the database layer.
+
+
+
+3. Isolation: Isolation ensures that concurrently running transactions do not interfere with each other’s intermediate states.
+        -> Essentially, while a transaction is in progress, its updates (or intermediate data) remain invisible to other ongoing 
+            transactions—giving the illusion that each transaction is running sequentially, one at a time.
+
+        -> Without isolation, two or more transactions could read and write partial or uncommitted data from each other, causing incorrect or inconsistent results.
+
+        -> Concurrency Anomalies
+
+            i. Dirty Read
+                . Transaction A reads data that Transaction B has modified but not yet committed.
+                . If Transaction B then rolls back, Transaction A ends up holding an invalid or “dirty” value that
+                    never truly existed in the committed state.
+
+            ii. Non-Repeatable Read
+                . Transaction A reads the same row(s) multiple times during its execution but sees different data 
+                    because another transaction updated or deleted those rows in between A’s reads.
+                
+            iii. Phantom Read
+                . Transaction A performs a query that returns a set of rows. Another transaction inserts, updates, or 
+                    deletes rows that match A’s query conditions.
+                . If A re-runs the same query, it sees a different set of rows (“phantoms”).
+
+
+        -> Isolation Levels
+            Databases typically allow you to choose an isolation level, which balances data correctness with performance.
+
+            Higher isolation levels provide stronger data consistency but can reduce system performance by increasing the wait times for transactions.
+
+            i. Read Uncommitted
+                . Allows dirty reads; transactions can see uncommitted changes.
+                . Rarely used, as it can lead to severe anomalies.
+
+            ii. Read Committed
+                . A transaction sees only data that has been committed at the moment of reading.
+                . Prevents dirty reads, but non-repeatable reads and phantom reads can still occur.
+            
+            iii. Repeatable Read
+                . Ensures if you read the same rows multiple times within a transaction, you’ll get the same values
+                    (unless you explicitly modify them).
+                . Prevents dirty reads and non-repeatable reads, but phantom reads may still happen (depending on the
+                    database engine).
+
+            iv. Serializable
+                . The highest level of isolation, acting as if all transactions happen sequentially one at a time.
+                . Prevents dirty reads, non-repeatable reads, and phantom reads.
+                . Most expensive in terms of performance and concurrency because it can require more locking or more
+                    conflict checks.
+
+
+        -> How Databases Enforce Isolation
+            i. Locking (Pessimistic Concurrency Control)
+                . Rows or tables are locked so that no other transaction can read or write them until the lock is
+                    released.
+                . Can lead to blocking or deadlocks if multiple transactions compete for the same locks.
+
+            ii. MVCC (Multi-Version Concurrency Control) - (Optimistic Concurrency Control)
+                . Instead of blocking reads, the database keeps multiple versions of a row.
+                . Readers see a consistent snapshot of data (like a point-in-time view), while writers create a new
+                    version of the row when updating.
+                . This approach reduces lock contention but requires carefully managing row versions and cleanup
+                    (vacuuming in PostgreSQL, for example).
+
+            iii. Snapshot Isolation
+                . A form of MVCC where each transaction sees data as it was at the start (or a consistent point) of
+                    the transaction.
+                . Prevents non-repeatable reads and dirty reads. Phantom reads may still occur unless the isolation
+                    level is fully serializable.
+
+
+
+
+4. Durability: Once a transaction has been committed, the changes it made will survive, even in the face of power
+                failures, crashes, or other catastrophic events.
+
+
+    -> How Databases Ensure Durability
+
+        i. Transaction Logs (Write-Ahead Logging)
+            . Most relational databases rely on a Write-Ahead Log (WAL) to preserve changes before they’re written to
+                the main data files:
+
+            a. Write Changes to WAL: The intended operations (updates, inserts, deletes) are recorded in the WAL on 
+                durable storage (disk).
+            b. Commit the Transaction: Once the WAL entry is safely persisted, the database can mark the transaction
+                as committed.
+            c. Apply Changes to Main Data Files: The updated data eventually gets written to the main files—possibly
+                first in memory, then flushed to disk.
+
+            If the database crashes, it uses the WAL during recovery:
+
+            . Redo: Any committed transactions not yet reflected in the main files are reapplied.
+            . Undo: Any incomplete (uncommitted) transactions are rolled back to keep the database consistent.
+
+
+        ii. Replication / Redundancy
+            . In addition to WAL, many systems use replication to ensure data remains durable even if hardware or an
+                entire data center fails.
+
+            a. Synchronous Replication: Writes are immediately copied to multiple nodes or data centers. A
+                transaction is marked committed only if the primary and at least one replica confirm it’s safely stored.
+            b. Asynchronous Replication: Changes eventually sync to other nodes, but there is a (small) window where 
+                data loss can occur if the primary fails before the replica is updated.
+
+
+        iii. Backups
+            . Regular backups provide a safety net beyond logs and replication. In case of severe corruption, human
+                error, or catastrophic failure:
+
+            . Full Backups: Capture the entire database at a point in time.
+            . Incremental/Differential Backups: Store changes since the last backup for faster, more frequent backups.
+            . Off-Site Storage: Ensures backups remain safe from localized disasters, allowing you to restore data
+                even if hardware is damaged.

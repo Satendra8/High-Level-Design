@@ -1,0 +1,55 @@
+- Availability refers to the proportion of time a system is operational and accessible when required.
+- It is usually expressed as a percentage, indicating the system's uptime over a specific period.
+- Formula: Availability = Uptime / (Uptime + Downtime)
+
+- Availability Tiers
+    -> Availability is often expressed in "nines". The higher the availability, the less downtime there is.
+    -> Availability %
+            99% (Two nines)
+            99.9% (Three nines)
+            99.99%
+            99.999%
+            99.9999%
+
+- Strategy for Improving Availability
+    i. Redundency
+        -> Redundancy involves having backup components that can take over when primary components fail.
+        -> Techniques
+            a. Server Redundancy: Deploying multiple servers to handle requests, ensuring that if one server fails, others can continue to provide service.
+            b. Database Redundancy: Creating a replica database that can take over if the primary database fails.
+            c. Geographic Redundancy: Distributing resources across multiple geographic locations to mitigate the impact of regional failures.
+
+    ii. Load Balancing
+        -> Load balancing distributes incoming network traffic across multiple servers to ensure no single server becomes a bottleneck, enhancing both performance and availability.
+        -> Techniques
+            a. Hardware Load Balancers: Physical devices that distribute traffic based on pre-configured rules.
+            b. Software Load Balancers: Software solutions that manage traffic distribution, such as HAProxy, Nginx, or cloud-based solutions like AWS Elastic Load Balancer.
+
+    iii. Failover Mechanisms
+        -> Failover mechanisms automatically switch to a redundant system when a failure is detected.
+        -> Techniques
+            a. Active-Passive Failover: A primary active component is backed by a passive standby component that takes over upon failure.
+            b. Active-Active Failover: All components are active and share the load. If one fails, the remaining components continue to handle the load seamlessly.
+
+    iv. Data Replication
+        -> Data replication involves copying data from one location to another to ensure that data is available even if one location fails.
+        -> Techniques
+            a. Synchronous Replication: Data is replicated in real-time to ensure consistency across locations.
+            b. Asynchronous Replication: Data is replicated with a delay, which can be more efficient but may result in slight data inconsistencies.
+
+    v. Monitoring and Alerts
+        -> Continuous health monitoring involves checking the status of system components to detect failures early and trigger alerts for immediate action.
+        -> Techniques
+            a. Heartbeat Signals: Regular signals sent between components to check their status.
+            b. Health Checks: Automated scripts or tools that perform regular health checks on components.
+            c. Health Checks: Automated scripts or tools that perform regular health checks on components.
+
+
+- Best Practices for High Availability
+    i. Design for Failure: Assume that any component of your system can fail at any time and design your system accordingly.
+    ii. Implement Health Checks: Regular health checks allow you to detect and respond to issues before they become critical failures.
+    iii. Use Multiple Availability Zones: Distribute your system across different data centers to prevent localized failures.
+    iv. Practice Chaos Engineering: Intentionally introduce failures to test system resilience.
+    v. Implement Circuit Breakers: Prevent cascading failures by quickly cutting off problematic services.
+    vi. Use Caching Wisely: Caching can improve availability by reducing load on backend systems.
+    vii. Plan for Capacity: Ensure your system can handle both expected and unexpected load increases.

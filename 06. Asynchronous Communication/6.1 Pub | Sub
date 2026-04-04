@@ -1,0 +1,437 @@
+What is Publish-Subscribe?     ************* Doubtful
+
+    ** see the diagram on blog: https://algomaster.io/learn/system-design/pub-sub
+
+    -> Publish-subscribe is a messaging pattern where publishers send messages to a topic (or channel), and all subscribers to that topic receive a copy of the message.
+
+    Key differences from message queues:
+
+        Aspect	                Message Queue	                        Pub/Sub
+        Delivery	      One message → one consumer	     One message → all subscribers
+        Coupling	      Producer may know about consumer	 Publisher does not know about subscribers
+        Purpose	          Task distribution, work queues	 Event notification, fanout
+        Consumption	      Consuming removes message	         Each subscriber gets a copy
+
+    
+
+
+Core Concepts
+
+    Every Pub/Sub system has four essential components.
+
+    i. Publishers
+
+        - Publishers are the message producers. They create events and send them to topics. A publisher doesn't care who consumes the message or how many consumers there are.
+
+        # Publisher just sends to a topic
+        pubsub.publish("order-events", {
+            "event": "order_placed",
+            "order_id": "12345",
+            "customer_id": "67890",
+            "total": 99.99
+        })
+
+
+    ii. Topics
+
+        Topics are named channels that organize messages. They:
+
+        - Have a unique name (e.g., orders, user-events)
+        - Receive messages from publishers
+        - Deliver copies to all subscribers
+        - May support filtering or partitioning
+
+
+    iii. Subscribers
+
+        - Subscribers express interest in one or more topics. When a message arrives on a topic, the system delivers it to all interested subscribers.
+
+        # Subscriber registers interest in a topic
+        def handle_order(message):
+            print(f"Processing order: {message['order_id']}")
+
+        pubsub.subscribe("order-events", handle_order)
+
+
+
+    iv. Messages
+
+        Messages are the data packets flowing through the system. They typically contain:
+
+        - Payload: The actual data (JSON, protobuf, etc.)
+        - Metadata: Timestamp, message ID, headers
+        - Topic: Which topic this message belongs to
+        - Attributes: Key-value pairs for filtering
+
+        {
+            "message_id": "msg-abc123",
+            "topic": "order-events",
+            "timestamp": "2024-01-15T10:30:00Z",
+            "attributes": {
+                "region": "us-east",
+                "priority": "high"
+            },
+            "payload": {
+                "event": "order_placed",
+                "order_id": "12345"
+            }
+        }
+
+
+
+
+How Pub/Sub Works
+
+    i. Publisher sends a message to the topic
+    ii. Topic acknowledges receipt
+    iii. Topic delivers a copy to each subscriber
+    iv. Each subscriber processes and acknowledges independently
+
+
+
+Push vs Pull Delivery
+
+    Push delivery: The pub/sub system pushes messages to subscribers as they arrive.
+
+    Pull delivery: Subscribers poll the topic for new messages.
+
+    
+    Aspect	                     Push	                        Pull
+        Latency	      Lower (immediate delivery)	    Higher (polling interval)
+        Control	      Broker controls delivery rate	    Subscriber controls fetch rate
+        Complexity    Subscriber needs endpoint	        Subscriber manages polling
+        Backpressure  Harder to manage	                Natural (subscriber pulls when ready)
+        Use case	  Real-time, webhooks	            Batch processing, rate control
+
+
+
+
+Message Fanout
+
+    ** see the diagram on blog
+
+    -> Fanout is the core capability of pub/sub: one message reaches multiple subscribers.
+
+    i. Simple Fanout: Every subscriber gets every message:
+
+    ii. Filtered Fanout: Subscribers only receive messages matching their filter:
+
+ 
+
+Topic Structures
+
+    i. Flat Topics
+
+        orders
+        users
+        payments
+        notifications
+
+
+    ii. Hierarchical Topics
+
+        orders/placed
+        orders/shipped
+        orders/delivered
+        orders/cancelled
+        users/registered
+        users/updated
+        users/deleted   
+    
+
+    Subscribers can subscribe to patterns:
+
+        - orders/* - all order events
+        - orders/placed - only order placed events
+        - # - all events (in some systems)
+
+
+
+Event Types
+
+    Another approach: single topic with event types in the message:
+
+        i. { type: 'order.placed', data: {...} }
+        ii. { type: 'order.shipped', data: {...} }
+        iii. { type: 'user.registered', data: {...} }
+
+
+
+
+
+Subscriber Patterns
+
+    Exclusive Subscription: Each subscription has exactly one subscriber. Common for stateful services:
+
+    Shared Subscription: Multiple subscribers share a subscription. Messages are load-balanced:
+
+    This combines pub/sub fanout with competing consumers:
+
+        - Multiple services subscribe (fanout)
+        - Each service has multiple instances (load balancing)
+
+
+
+Durable vs Ephemeral Subscriptions
+
+    - Durable: Messages are stored until acknowledged. If subscriber disconnects, messages accumulate and are delivered when it reconnects.
+    - Ephemeral: Messages only delivered to currently connected subscribers. Miss messages while disconnected.
+
+
+
+
+Popular Pub/Sub Implementations
+
+    Different technologies implement Pub/Sub with varying trade-offs.
+
+    i. Apache Kafka
+
+        -> Kafka works differently. It is a distributed log where messages persist and consumers track their position:
+
+
+        Key characteristics:
+
+            - Messages persist on disk (configurable retention)
+            - Consumers can replay from any offset
+            - Partitions enable parallelism
+            - Consumer groups provide load balancing within a subscription
+
+
+        -> Best for: High-throughput event streaming, event sourcing, data pipelines
+
+
+
+    ii. Amazon SNS (Simple Notification Service)
+
+        -> SNS (Simple Notification Service) is a fully managed Pub/Sub service from AWS.
+
+        Key characteristics:
+    
+            - Serverless, fully managed
+            - Multiple subscription protocols (SQS, Lambda, HTTP, email, SMS)
+            - Message filtering by attributes
+            - No message persistence (fire and forget)
+
+
+        Best for: AWS-native applications, fan-out to multiple services, notifications
+
+
+
+    iii. Google Cloud Pub/Sub
+
+        -> Google's managed Pub/Sub service with global message delivery.
+
+            Feature	                Details
+                Type	    Fully managed, global
+                Delivery	At least once, push or pull
+                Ordering	Optional per-message key
+                Retention	Up to 7 days
+                Best for	GCP workloads, global scale
+
+        
+        Key characteristics:
+
+            - Global distribution with low latency
+            - At-least-once delivery with acknowledgment deadlines
+            - Message replay via Seek
+            - Dead letter queues for failed messages
+
+
+        -> Best for: Global applications, GCP-native workloads, exactly-once processing needs
+
+
+
+    iv. Redis Pub/Sub
+
+
+        -> Redis provides lightweight in-memory Pub/Sub.
+
+        # Publisher
+            redis.publish("notifications", json.dumps({"user": "123", "msg": "Hello"}))
+
+        # Subscriber
+            pubsub = redis.pubsub()
+            pubsub.subscribe("notifications")
+            for message in pubsub.listen():
+                process(message)
+
+
+        Key characteristics:
+
+            - Fire and forget (no persistence)
+            - Very fast (in-memory)
+            - Simple to use
+            - No acknowledgments or retries
+
+
+        -> Best for: Real-time features, cache invalidation, simple notifications where loss is acceptable
+
+
+
+    Comparison
+
+    System	      Persistence	Replay	  Ordering	       Managed	           Best For
+
+        Kafka	      Yes	     Yes	Per-partition	  Self/Managed	   Event streaming
+        AWS SNS	      No	     No	       No	              Yes	       Fan-out, notifications
+        Google       Pub/Sub	 Yes	   Yes	              Per-key	   Yes	Global apps
+        Redis	      No	     No	       No	          Self/Managed	   Real-time, simple cases
+
+
+
+
+
+Common Patterns
+
+    i. Event Notification
+
+        -> The simplest pattern: publish an event to tell subscribers that something happened. Each subscriber decides what to do next.
+        -> This works well when subscribers are independent and you want loose coupling between services.
+
+
+    ii. Fan-Out to Queues
+
+        -> Use pub/sub for fan-out, then hand off to per-consumer queues for reliable processing and backpressure.
+        -> Each service has its own queue. The pub/sub layer handles fanout. The queues provide reliability and allow independent scaling.
+
+
+    iii. Event Sourcing
+
+        -> Store state as an append-only sequence of events. Pub/sub distributes those events so other services can build and maintain their own derived views (read models).
+    
+
+    iv. CQRS (Command Query Responsibility Segregation)
+
+        -> Split writes and reads into separate models. Events become the bridge between the write side and the read side.
+
+
+
+
+
+Design Considerations
+
+    Message Ordering
+
+        -> Most pub/sub systems do not guarantee global ordering. Two subscribers can see the same events in different sequences.
+        
+        If ordering matters
+
+            - Partition the stream (Kafka): events with the same key land in the same partition.
+            - Use ordering keys (GCP Pub/Sub): preserve ordering per key.
+            - Assume ordering only within a partition/key, not across the whole system.
+            - Design for out-of-order delivery:
+
+                > Include eventTime, sequenceNumber, or version
+                > Buffer and reorder within a small window when feasible    
+                > Make handlers tolerant (ignore stale updates, use last-write-wins rules where appropriate)
+
+
+
+    At-Least-Once Delivery
+
+        -> Most pub/sub systems provide at-least-once delivery. Subscribers may receive duplicates.
+        -> Message sent once → may be delivered 1, 2, or many times.
+
+        Subscribers must be idempotent
+
+            - Track processed message IDs (dedupe store with TTL)
+            - Track processed message IDs (dedupe store with TTL)
+            - Make operations naturally idempotent
+
+                    > “Set status = SHIPPED” (idempotent) instead of “increment shippedCount” (not idempotent)
+                    > Use idempotency keys for side effects (emails, payments, notifications)
+
+
+        Subscriber Failure
+
+            -> Failures are inevitable. The question is what happens to the message when processing fails.
+
+
+            Best practices
+
+                - Use bounded retries + exponential backoff to avoid retry storms.
+                - Put poison messages into DLQ for manual inspection or automated repair.
+                - Emit metrics: retry rate, DLQ rate, processing latency, consumer lag.
+                - Keep retry behavior consistent: transient vs permanent failures should be treated differently.
+
+
+
+        Schema Evolution
+
+            -> As events evolve, you need to handle:
+
+                - Adding new fields (usually backward compatible)
+                - Removing fields (may break old subscribers)
+                - Changing field types (usually breaking)
+
+
+            Best practices:
+
+                - Use schema registries (Confluent Schema Registry, AWS Glue)
+                - Version your events
+                - Prefer additive changes
+                - Document breaking changes
+
+
+
+
+
+Real-World Architecture
+
+    Let us design a notification system using pub/sub:
+
+
+    Design decisions:
+
+        i. Single topic: All notification-triggering events go to one topic
+        ii. Router service: Determines which channels each notification should use
+        iii. Channel queues: Each channel has its own queue for reliable delivery
+        iv. Independent scaling: Email, SMS, and push workers scale independently
+        v. Loose coupling: Producers do not know about notification channels
+
+
+
+
+Summary
+
+    -> Publish-subscribe is a messaging pattern where messages are broadcast to all interested subscribers:
+
+
+    Core concepts:
+
+        - Publishers send messages to topics
+        - Topics are named channels that organize messages
+        - Subscribers register interest and receive copies
+        - Subscriptions link subscribers to topics with optional filtering
+
+
+    Key patterns:
+
+        - Fanout: One message reaches all subscribers
+        - Filtering: Subscribers receive only matching messages
+        - Fan-out to queues: Combine pub/sub with queues for reliability
+        - Event sourcing: Broadcast state changes to multiple read models
+
+
+    Delivery modes:
+
+        - Push: Low latency, broker-controlled rate
+        - Pull: Subscriber-controlled rate, higher latency
+        - Durable: Messages persist until acknowledged
+        - Ephemeral: Messages only delivered to connected subscribers
+
+
+    Design considerations:
+
+        - Most systems provide at-least-once delivery
+        - Subscribers must be idempotent
+        - Ordering is typically per-partition, not global
+        - Schema evolution requires planning
+
+
+
+
+    -> Pub/sub enables event-driven architectures where services react to events without tight coupling. Combined with message queues, it provides the foundation for scalable, resilient distributed systems.
+
+    -> Now that we understand both message queues and pub/sub, an obvious question arises: when should you use each? In the next chapter, we will directly compare these two patterns and provide guidance on choosing between them.
+

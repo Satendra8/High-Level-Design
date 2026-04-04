@@ -1,0 +1,126 @@
+API Architecture - Design Best Practices for REST APIs
+
+
+    1. Learn the basics of HTTP
+
+        - HTTP has verbs (actions or methods): GET, POST, PUT, PATCH and DELETE are most common.
+        - REST is resource-oriented and a resource is represented by an URI: /library/
+        - An endpoint is the combination of a verb and an URI, example: GET: /books/
+        - An endpoint can be interpreted as an action performed on a resource. Example: POST: /books/ may mean "Create a new book".
+        - At a high-level, verbs map to CRUD operations: GET means Read, POST means Create, PUT and PATCH mean Update, and DELETE means Delete
+        - A response’s status is specified by its status code: 1xx for information, 2xx for success, 3xx for redirection, 4xx for client errors and 5xx for server errors
+
+
+
+    2. Do not return plain text
+
+        - Although this is not imposed or mandated by any REST architectural style, most REST APIs by convention use JSON as the data format.
+        - However, it is not good enough to just return a response body containing a JSON-formatted String. You should still specify the Content-Type header. It must be set to the value application/json.
+
+
+
+    3. Do not use verbs in URIs
+
+        Wrong: GET: /books/:slug/generateBookCover/
+
+        right: GET: /books/:slug/bookCover/
+
+        The GET method is syntactically sufficient here to say that we are retrieving ("GETting") a book’s cover.
+
+        # Don’t do this
+            POST: /books/createNewBook/
+        # Do this
+            POST: /books/
+
+    
+
+    4. Use plural nouns for resources
+
+        GET /book/2/ is fine. But what about GET /book/? Are we GETting the one and only book in the library, couple of them, or all of them?
+
+        To prevent this kind of ambiguity, let’s be consistent (💡Software career advice!) and use plural everywhere:
+
+        GET: /books/2/
+        POST: /books/
+        ...
+
+
+
+    5. Return the error details in the response body
+
+        {
+            "error": "Invalid payload.",
+            "detail": {
+                "name": "This field is required."
+            }
+        }
+
+
+
+    6. Pay special attention to HTTP status codes
+
+        Make use of the HTTP status code, and only use the response body to provide error details.
+
+        HTTP/1.1 400 Bad Request
+        Content-Type: application/json
+        {
+            "error": "Expected at least three items in the list."
+        }
+
+
+    
+    7. You should use HTTP status codes consistently
+
+        Once you’ve mastered HTTP status codes, you should aim to use them consistently.
+
+        GET: 200 OK
+        PUT: 200 OK
+        POST: 201 Created
+        PATCH: 200 OK
+        DELETE: 204 No Content
+
+
+
+    8. Do not nest resources
+
+        Wrong: GET: /authors/Cagan/books/
+
+        Right: GET: /books?author=Cagan
+
+
+
+    9. Handle trailing slashes gracefully
+
+        Take care of back slash, follow 1 convention, i choose POST: /buckets
+
+        POST: /buckets
+
+        POST: /buckets/
+
+
+
+    10. Make use of the querystring for filtering and pagination
+
+        GET: /books?published=true&page=2&page_size=10
+
+
+
+    11. Know the difference between 401 Unauthorized and 403 Forbidden
+
+        401 Unauthorized : Has the consumer not provided authentication credentials? Was their SSO Token invalid/timed out? 👉 401 Unauthorized.
+        403 Forbidden : Was the consumer correctly authenticated, but they don’t have the required permissions/proper clearance to access the resource? 👉 403 Forbidden.
+
+
+    12. Make good use of HTTP 202 Accepted
+
+        There are two main scenarios which I find 202 Accepted to be especially suitable:
+
+            - If the resource will be created as a result of future processing — example: After a job/process has finished.
+            - If the resource already existed in some way, but this should not be interpreted as an error.
+
+    
+    13. Use a web framework specialized in REST APIs
+
+        Python: Falcon, Django Rest Framework
+
+        Javascript: Restify

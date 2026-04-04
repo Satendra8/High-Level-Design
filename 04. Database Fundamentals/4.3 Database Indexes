@@ -1,0 +1,129 @@
+1. What are Database Indexes?
+
+    -> A database index is a super-efficient lookup table that allows a database to find data much faster.
+    -> It holds the indexed column values along with pointers to the corresponding rows in the table.
+    -> Without an index, the database might have to scan every single row in a massive table to find what you want – a painfully slow process.
+    -> But, with an index, the database can zero in on the exact location of the desired data using the index’s pointers.
+    
+
+    How to create Indexes?
+
+        CREATE TABLE employees (
+            id INT PRIMARY KEY,
+            first_name VARCHAR(50),
+            last_name VARCHAR(50),
+            email VARCHAR(100),
+            department VARCHAR(50),
+            salary DECIMAL(10, 2)
+        );
+
+        -- Create index on last_name for faster lookups
+        CREATE INDEX idx_last_name ON employees (last_name);
+
+
+        SELECT * FROM employees WHERE last_name = 'Smith';
+
+        This query will use the idx_last_name index to quickly locate the rows where the last_name is 'Smith', avoiding a full table scan.
+
+
+
+2. How do Database Indexes Work?
+
+    i. Index Creation: The database administrator creates an index on a specific column or set of columns.
+    ii. Index Building: The database management system builds the index by scanning the table and storing the values of the indexed column(s) along with a pointer to the corresponding data.
+    iii. Query Execution: When a query is executed, the database engine checks if an index exists for the requested column(s).
+    iv. Index Search: If an index exists, the database searches the index for the requested data, using the pointers to quickly locate the data.
+    v. Data Retrieval: The database retrieves the requested data, using the pointers from the index.
+
+
+
+
+3. Benefits of Database Indexes
+
+    i. Faster Query Performance: Indexes can significantly improve query performance especially for large datasets by reducing the amount of data that needs to be scanned.
+    ii. Reduced CPU Usage: By reducing the number of rows that need to be scanned, indexes can decrease CPU usage and optimize resource utilization.
+    iii. Rapid Data Retrieval: Indexes enable quick data retrieval for queries that involve equality or range conditions on the indexed columns.
+    iv. Efficient Sorting: Indexes can also be used to efficiently sort data based on the indexed columns, eliminating the need for expensive sorting operations.
+    v. Better Data Organization: Indexes can help maintain data organization and structure, making it easier to manage and maintain the database.
+
+
+
+4. Types of Database Indexes
+
+    Indexes based on Structure and Key Attributes:
+
+        i. Primary Index: Automatically created when a primary key constraint is defined on a table. Ensures uniqueness and helps with super-fast lookups using the primary key.
+        ii. Clustered Index: Determines the order in which data is physically stored in the table. A clustered index is most useful when we’re searching in a range. Only one clustered index can exist per table.
+        iii. Non-clustered or Secondary Index: This index does not store data in the order of the index. Instead, it provides a list of virtual pointers or references to the location where the data is actually stored.
+
+
+    Indexes based on Data Coverage:
+
+        i. Dense index: Has an entry for every search key value in the table. Suitable for situations where the data has a small number of distinct search key values or when fast access to individual records is required.
+        ii. Sparse index: Has entries only for some of the search key values. Suitable for situations where the data has a large number of distinct search key values.
+
+
+    Specialized Index Types:
+
+        i. Bitmap Index: Excellent for columns with low cardinality (few distinct values). Common in data warehousing.
+        ii. Hash Index: A index that uses a hash function to map values to specific locations. Great for exact match queries.
+        iii. Filtered Index: Indexes a subset of rows based on a specific filter condition. Useful to improve query speed on commonly filtered columns.
+        iv. Covering Index: Includes all the columns required by a query in the index itself, eliminating the need to access the underlying table data.
+        v. Function-based index: Indexes that are created based on the result of a function or expression applied to one or more columns of a table.
+        vi. Full-Text Index: A index designed for full-text search, allowing for efficient searching of text data.
+        vii. Spatial Index: Used for indexing geographical data types.
+
+
+
+
+5. What Data Structure do Indexes use?
+
+    B-Tree (Balanced Tree)
+
+        - Most database engines use either a B-Tree or a variation of B-Trees like B+ Trees.
+        - B-Trees have a hierarchical structure with a root node, internal nodes (index nodes), and leaf nodes.
+        - Each node in a B-Tree contains a sorted array of keys and pointers to child nodes.
+
+        Here's why they are so well-suited:
+
+            a. Self-Balancing: B-trees ensure that the 'height' of the tree stays balanced even when inserting or deleting data. This ensures logarithmic time complexity for insertion, deletion, and searching.
+            b. Ordered: B-trees keep the data sorted, making range queries ("find all orders between date X and Y") and inequality comparisons very fast.   
+            c. Disk-Friendly: B-trees are designed to work well with disk-based storage. A single node of a B-tree often corresponds to a disk block, minimizing disk access operations.
+
+        Many databases use a slightly modified B-tree variant called the B+ tree.
+        In a B+ tree, all data values are stored only in the leaf nodes, which can further improve performance for certain use cases like range queries.
+
+
+    Hash Tables
+
+        ** see the diagram on blog: https://algomaster.io/learn/system-design/indexing
+
+        - Hash tables are used for hash indexes, which are based on a hash function.
+        - A hash table consists of an array of buckets, with each bucket containing the addresses for rows in the data.
+        - Hash indexes employ a hash function to map keys to their corresponding bucket in the hash table, enabling constant-time lookup operations.
+        - Hash indexes provide fast equality lookups, as the hash function determines the exact location of the data based on the key.
+        - However, hash indexes do not support range queries or sorting efficiently.
+
+
+
+    Bitmaps
+
+        - Each bit in the bitmap corresponds to a row, and the value of the bit indicates whether the key value exists in that row.
+        - Bitmap indexes use a bitmap (a binary array) to represent the presence or absence of a specific key value in each row of a table.
+        - Bitmap indexes use a bitmap (a binary array) to represent the presence or absence of a specific key value in each row of a table.
+        - Bitmap operations like AND, OR, and NOT are performed efficiently using bitwise operations, making bitmap indexes suitable for analytical queries involving multiple columns.
+
+
+
+
+6. How to use Database Indexes Smartly?
+
+    i. Identify Query Patterns: Analyze the most frequent and critical queries executed against your database to determine which columns to index and which type of index to use.
+    ii. Index Frequently Used Columns: Consider indexing columns that are frequently used in WHERE, JOIN, and ORDER BY clauses.
+    iii. Index Selective Columns: Indexes are most effective on columns with a good spread of data values (high cardinality). Indexing a gender column might be less beneficial than one with a unique customer_id.
+    iv. Use Appropriate Index Types: Choose the right index type for your data and queries.
+    v. Consider Composite Indexes: For queries involving multiple columns, consider creating composite indexes that encompass all relevant columns. This reduces the need for multiple single-column indexes and improves query performance.
+    vi. Monitor Index Performance: Regularly monitor index performance, remove unused indexes and adjust your indexing strategy as the database workload evolves.
+    vii. Avoid Over-Indexing: Avoid creating too many indexes, as this can lead to increased storage requirements and slower write performance. Indexes take up extra disk space since they're additional data structures that need to be stored alongside your tables. Every time you insert, update, or delete data in a table with an index, the index needs to update too. This can slightly slow down write operations.
+
+
