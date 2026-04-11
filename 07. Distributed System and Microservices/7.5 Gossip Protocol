@@ -1,0 +1,16 @@
+Gossip Protocol:
+
+    -> Every node has a membership list [memberId, Heartbeat Counter, Time]
+
+    for S0 node MemberShip list
+
+    memberId        Heartbeat Counter      Time
+        0                  10232          12:00:01
+        1                  10224          12:00:10
+        2                  9000           11:50:02
+
+
+    S0 keep updating its heartbeat and send its Membership list to other random nodes (Say S1)
+    S1 compare time and update its Membership list
+    If a Node has not updated and it exceed a Fixed timeout mark dead
+    S1 sends to other nodes its MemberShip list, then they also know that a node is dead

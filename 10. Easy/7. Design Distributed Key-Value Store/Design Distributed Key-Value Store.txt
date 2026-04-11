@@ -160,5 +160,137 @@ HLD
 
             Replication gives high availability, but causes Inconsistencies among replicas
 
-            
 
+            server1 ---------put(name, John Kumar) ----------- db (node1)
+            server2 ---------put(name, John Doe)   ----------- db (node2)
+
+
+            
+            We use vector clock know which one is latest update
+
+            VECTOR CLOCK
+
+                A pair [server, version] associated with a data item.
+
+                     Sx                       Sx
+                --------------> D1([Sx, 1]) --------------> D2([Sx, 2])
+
+
+                                                                                   Sy
+                    Sx                            Sx                     /   ----------------->  D3([Sx, 2], [Sy, 1])     \
+                --------------> D1([Sx, 1]) --------------> D2([Sx, 2]) /                                                  \ -------------------------> D5([Sx, 3], [Sy, 1], [Sz, 1])
+                                                                        \                                                  /
+                                                                         \  ------------------>   D4([Sx, 2], [Sz, 1])    /
+                                                                                    Sz
+                                                                          
+
+
+
+            D5([Sx, 3], [Sy, 1], [Sz, 1])
+
+                Ancestor - [Sx, 3]
+                Sibling - [Sy, 1], [Sz, 1]
+
+
+            Dis Advantage:
+
+                i. Complexity: Client need to implement confict resolution logic
+                ii. [Server, Version]: Pairs grow rapidly (remove old pairs after conflict resolution)
+
+
+
+        5. Handling Failures
+
+            i. Temporary Failures
+            ii. Permanent Failures
+
+
+            Failute Detection:
+
+                i. All to all Multicasting: each server node send message to each one, if not responded then there is a failure
+
+                ii. Gossip Protocol:
+
+                    -> Every node has a membership list [memberId, Heartbeat Counter, Time]
+
+                    for S0 node MemberShip list
+
+                    memberId        Heartbeat Counter      Time
+                       0                  10232          12:00:01
+                       1                  10224          12:00:10
+                       2                  9000           11:50:02
+
+
+                    S0 keep updating its heartbeat and send its Membership list to other random nodes (Say S1)
+                    S1 compare time and update its Membership list
+                    If a Node has not updated and it exceed a Fixed timeout mark dead
+                    S1 sends to other nodes its MemberShip list, then they also know that a node is dead
+
+        
+            Temporary Failure:
+
+                Strict Quorum: Read/Write blocked
+
+                Sloppy Quorum: Used to improve availability
+
+                    Hash Ring:
+                        First W servers to write
+                        First R servers to read
+
+
+                    When server is down, some other server will process request temporarily.
+                                                                              
+                    Once it is up, changes will be pushed back to achieve consistency. | Hinted Handoff
+
+
+
+            Permanent Failure:
+
+                We implement Anti-entropy protocol to keep replicas in sync.
+
+                Anti-entropy:
+                    Compare each piece of data on replicas and updating them.
+                    We use MERKLE TREE
+
+
+                    MERKLE TREE:
+                        1. create hash for all data
+                        2. add up and make tree
+                        3. compare tree of each server
+
+                        benifit: fast comparision
+
+
+                Handling data center Outage
+
+                    -> Power outage
+                    -> Network outage
+                    -> Natural Disaster
+
+                    We should replicate data across multiple data centers
+
+
+
+
+        6. System Architecture Design
+
+            Components:
+
+                                     get(key)
+                i. Client       <------------------------    Key Value Store
+                                ------------------------>
+                                    put(key, value)
+
+
+                ii. Coordinator node: proxy between client and key value Store
+
+                iii. Nodes Distributed on Ring: Consistent Hashing
+
+                iv. Add, remove node - Automatic
+
+                v. Data replicated in replica
+
+                vi. No Single point of failure - Multiple Nodes
+                
+
+        7. Write Path, Read Path (see diagram)

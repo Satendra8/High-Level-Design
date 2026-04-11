@@ -1,0 +1,495 @@
+Rate Limiter: used to control the rate of traffic sent by client.
+
+In HTTP world: Limits the number of client requests allowed to be sent over a specified period.
+
+if count(API request) > Threshold {
+    "Access calls blocked"
+}
+
+Examples:
+    -> No more that 2 posts / second
+    -> Maximum 10 accounts/day from some IP addesss
+
+
+
+Advantages:
+
+    i. Prevent DoS attack
+        -> every company almost use rate limiting
+
+    ii. Reduce cost
+        -> Limiting access request ------> few servers ----------> more resource for high priority api
+    
+    iii. Prevent server overloading
+        -> filter out request caused by Bots or users misbehaviour
+
+
+Rate Limiter
+
+    Different Algorithms
+    Pros and Cons
+
+
+
+Kind of Rate Limiter
+    client side rate limiter
+    server side rate limiter
+    
+
+
+Server side API rate limiter
+    limit API request based on
+        IP?
+        User-ID
+        Other Properties
+
+
+Functional Requirement
+
+    -> should not slow down HTTTP response time
+    -> use as little as memory possible
+    -> High fault tolerance
+
+        i. If any issue (cache server goes offline, server down)
+        ii. must not affect entire system
+    
+    Exception Handling: Show cleat exception to user
+
+    Distributed rate limiting: Shared across multiple servers
+
+
+
+
+
+1. Where to Put in Rate Limiter
+2. Rate Limiter Algorithms
+3. High Level Architecture
+
+
+
+
+
+1. Where to Put Rate Limiter
+
+    a. client side: we generally have no control on client side
+
+    b. server side:
+
+        client ---------------->    server
+                                    rate limiter
+
+
+        Rate limiter middleware
+
+        client -------> rate limiter ------------> Server
+
+
+
+It depends which to use when
+
+    a. if API gateway is there, implement in it.
+    b. system is small implement within server
+
+
+
+
+
+2. Rate Limiting Algorithms
+
+    i. TOKEN BUCKET ALGORITHM:
+
+        a. widely used and simple
+        b. used by company like amazon and stripe etc.
+        c. take two parameters bucket size, fill rate
+
+
+        How many buckets
+
+            Different API endpints: Different buckets
+
+            Throttlw based on IP adress: 1 bucket / IP address
+
+            System allow max 10000 / second: A global bucket shared by all requests
+
+
+        Pros
+            -> simple
+            -> A request can go as long as we have tokens
+
+
+
+        Cons
+            -> bucket size and Token fill rate tuning is challanging
+            -> send packet at an average rate
+
+
+        
+        /**
+
+        class TokenBucket {
+            constructor(capacity, fillRate, ) {
+                this.capacity = capacity
+                this.fillRate = fillRate
+                this.token = capacity
+                this.lastUpdatedTime = Date.now()
+            }
+
+
+            allowRequest() {
+                const currentTime = Date.now()
+                this.token = Math.min(this.capacity, this.token + Math.floor((currentTime - this.lastUpdatedTime)/1000)*this.fillRate)
+                this.lastUpdatedTime = currentTime
+
+                if(this.token >= 1) {
+                    this.token --;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+
+        const obj = new TokenBucket(10, 1)
+
+        for(let i=0; i<20; i++) {
+            console.log(obj.allowRequest())
+        }
+
+        console.log("sleep...........")
+        Promise.resolve(setTimeout(()=>{
+            console.log(obj.allowRequest())
+        }, 5000))
+
+        */
+
+
+
+    ii. LEAKING BUCKET ALGORITHM
+
+        -> similar to token bucket but requests processed at fixed rate
+        -> using fifo queue
+
+
+        Takes 2 parameters  
+            -> Bucket size: equal to queue size
+            -> Outlow rate: No of request at fixed rate
+
+
+        Pros:
+
+            -> momory efficient, limited queue size
+            -> stable outflow rate
+
+
+        Cons:
+
+            -> Take 2 parameters, tuning is challanging
+
+
+        /**
+
+        class LeakyBucket {
+            constructor(capacity, leakRate) {
+                this.capacity = capacity
+                this.leakRate = leakRate
+                this.bucket = []
+                this.lastLeak = Date.now()
+            }
+
+            allowRequest() {
+                const currentTime = Date.now()
+
+                const leakedCount = Math.min(Math.floor((currentTime - this.lastLeak)/1000) * this.leakRate, this.capacity)
+                this.bucket.splice(0,leakedCount);
+                this.lastLeak = currentTime
+
+
+                if (this.bucket.length < this.capacity) {
+                    this.bucket.push(currentTime)
+                    return true
+                } else {
+                    return false
+                }
+            }
+        }
+
+        const obj = new LeakyBucket(10, 1)
+
+        for(let i=0; i<15; i++) {
+            console.log(obj.allowRequest())
+        }
+
+        Promise.resolve(setTimeout(()=>{
+            console.log(obj.allowRequest())
+        }, 5000))
+
+        */
+
+
+
+    iii. FIXED WINDOW COUNTER ALGORITHM
+
+        -> Timeline: fixed type time windows
+        
+        -> Each window has a counter
+
+        -> counter increment +1 per request
+
+        -> counter reaches threshold, new requests dropped, untill new window starts
+
+
+        Pros:
+
+            -> Easy to understand & implement
+
+        Cons:
+
+            -> Traffic burst at edge of a window cause more request than the threshold
+
+
+        /**
+
+
+        class FixedWindowCounter {
+            constructor(windowSize, maxRequest) {
+                this.windowSize = windowSize
+                this.maxRequest = maxRequest
+                this.currentWindow = Math.floor(Date.now() / windowSize)
+                this.requestCount = 0
+            }
+
+            allowRequest() {
+
+                const currentTime = Date.now()
+
+                const window = Math.floor(((currentTime/1000) / this.windowSize))
+                
+                if (window != this.currentWindow) {
+                    this.requestCount = 0
+                    this.currentWindow = window
+                }
+
+                if (this.requestCount < this.maxRequest) {
+                    this.requestCount ++;
+                    return true
+                }
+                return false
+            }
+        }
+
+
+        const obj = new FixedWindowCounter(4, 3)
+
+        for(let i=0; i<15; i++) {
+            console.log(obj.allowRequest())
+        }
+
+        Promise.resolve(setTimeout(()=>{
+            console.log(obj.allowRequest())
+        }, 1000))
+
+
+        /**
+
+        🧪 Mini Example
+
+        Time	               Window
+        1775738603 / 60 = 	  29595643
+        1775738610 / 60 =     29595643
+        1775738660 / 60 =	  29595644 ✅
+
+        */
+    */
+
+
+
+    iv. SLIDING WINDOW LOG
+
+
+        This resolves the drawback of fixed window counter - Traffic burst at edge of a window
+
+
+        1st Request at 1:00:01
+            Window: 12:59:01 → 1:00:01
+            Requests in window: [1:00:01]
+            Count = 1 → ✅ Allowed
+
+        ✅ 2nd Request at 1:00:30
+            Window: 12:59:30 → 1:00:30
+            Requests: [1:00:01, 1:00:30]
+            Count = 2 → ✅ Allowed
+
+        ❌ 3rd Request at 1:00:50
+            Window: 12:59:50 → 1:00:50
+            Requests: [1:00:01, 1:00:30, 1:00:50]
+            Count = 3 → ❌ Rejected (limit exceeded)
+
+            👉 Even though requests are spread out, all 3 fall within last 60 seconds.
+
+
+        ✅ 4th Request at 1:01:40
+            Window: 1:00:40 → 1:01:40
+
+            Now check old requests:
+
+            1:00:01 ❌ OUTSIDE window → removed
+            1:00:30 ❌ OUTSIDE window → removed
+            1:00:50 ✅ inside
+            1:01:40 ✅ current
+            Requests: [1:00:50, 1:01:40]
+            Count = 2 → ✅ Allowed
+
+        
+
+        a. store the timestamp of each request in cache
+        b. new request - remove outdated timestamps
+        c. add timestamp of new request
+        d. if timestamps.length >= threshold -> reject request
+
+
+        Pros:
+
+            -> Accurate
+            -> Will not exceeded threshold
+            
+        Cons:
+
+            -> Even if request reject, logged in cache memory usage high
+
+
+        
+        /**
+
+        const { time } = require("console")
+
+        class SlidingWindowLog {
+            constructor(windowSize, maxRequests){
+                this.windowSize = windowSize
+                this.maxRequests = maxRequests
+                this.timestamps = []
+            }
+
+            allowRequest() {
+                const currentTime = Date.now()
+
+                const oneMinWindow = currentTime - (this.windowSize*1000)
+
+                while(this.timestamps.length > 0){
+                    if(this.timestamps[0] <= oneMinWindow) {
+                        this.timestamps.shift()
+                    } else {
+                        break
+                    }
+                }
+
+                if(this.timestamps.length < this.maxRequests) {
+                    this.timestamps.push(currentTime)
+                    return true
+                }
+                return false
+            }
+        }
+
+
+
+        const obj = new SlidingWindowLog(5, 5)
+
+        for(let i=0; i<15; i++){
+            console.log(obj.allowRequest())
+        }
+
+        Promise.resolve(setTimeout(()=>{
+            console.log(obj.allowRequest())
+        }, 4000))
+        */
+
+
+
+
+
+
+3. High Level Architecture
+
+    Counter - To keep track of number of requests - same user, same IP
+
+    Counter >= threshold ------> reject
+
+
+    Q. Where we store counter - Redis cache is popular option
+
+    Redis: In memory fast store
+
+        INCR - counter ++
+
+        EXPIRE - timeout for a counter
+
+
+    Q. How we create rules and where to store
+
+        max request 5 in a second - we can create XML file or configuration file to save it to disk
+
+
+    Q. What to do when  Exceeding the rate limit
+
+        -> Send HTTP response code 429 to client
+        -> 429: Too many many requests
+
+        -> Depend on use case what to do next
+
+            - Enqueue and process later
+
+    
+    Q. How will the client know, how many request left, when his request will be back
+
+        via HTTP response Headers sent by rate limiter
+
+        Headers                           Meaning
+
+    X - Ratelimit-Remaining            how many requests left
+    X - Ratelimit-Limit                how many max requests
+    X - Ratelimit-Retry-After          afte how many time you can send request
+
+
+
+    -> Use workers to handle requests
+
+
+
+    Q. Any challanges for rate limiter in Distributed environment
+
+        There are mainly 2 challanges
+            i. race condition
+            ii. synchronization issue
+
+        
+        i. Race condition
+
+            Locks are the obvoius solution but it slow down the system
+
+
+        ii. synchronization issue
+
+            million of users
+            1 Rate limiter is not enough
+            when mulltiple rate limiter used , synchronization must be there
+
+        
+
+
+4. Performance Optimization and Monitoring
+
+    Q. How will you check your rate limiter is effective
+
+        By monitoring matrices
+
+
+        mainly 2 things to ensure
+
+            i. Rate Limiter Algorithm - effective
+            ii. Rate Limiter Rules - effective
+
+    
+    Q. Rate limiting rules are too strict? sudden massive traffic in flash sale
+
+
+        replace algorithm to support burst of traffic - TOKEN BUCKET
