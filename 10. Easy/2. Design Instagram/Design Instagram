@@ -434,6 +434,16 @@
                 LRANGE feed:56789 0 9  # Fetch the latest 10 posts from user 56789's feed
 
 
+                Benefits:
+
+                    Super-fast reads since followers' feeds are pre-loaded.
+                    Works efficiently for small and medium-sized accounts.
+                Challenges:
+
+                    Becomes inefficient for users with millions of followers (e.g., celebrities).
+                    Writing a post requires copying it to potentially millions of timelines, leading to high write amplification.
+
+
         Fan-out-on-read (Pull Model) for Celebrities
 
             For celebrities and influencers, where a single post may need to reach millions of followers, preloading into every follower’s feed is impractical.
@@ -446,6 +456,16 @@
                 -> Normal users’ posts from Redis (precomputed feeds).
                 -> Celebrity posts from a hot cache (Redis) or a persistent store (PostgreSQL).
                 -> The system merges both types of posts in real-time before serving the feed.
+
+
+            Benefits:
+
+                Avoids massive write operations, keeping the system scalable.
+                Ensures fresh data when users request feeds.
+            Challenges:
+
+            Slightly higher read latency than the push model.
+            Requires caching optimization to reduce database lookups.
 
 
 

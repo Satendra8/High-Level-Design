@@ -1,0 +1,672 @@
+1. Requiremment Clarification
+
+    a. Functional Requiremment
+
+        -> One-on-One Chat: Users can send and receive messages in real-time with other users.
+        -> Group Chat: Users can create groups and send messages to multiple recipients (up to 500 members).
+        -> Message Delivery Status: Users can see delivery receipts (sent, delivered, read).
+        -> Online Presence: Users can see if their contacts are online, offline, or their last seen time.
+        -> Message History: Users can access their message history and sync across multiple devices.
+        -> Push Notifications: Offline users receive push notifications for new messages.
+
+        Out of Scope
+            -> Media Messages: Images, videos, voice notes (mentioned conceptually only).
+            -> Voice/Video Calls: Real-time audio and video communication.
+            -> End-to-End Encryption: Detailed cryptographic implementation.
+            -> Stories/Status Updates: Ephemeral content sharing.
+
+    b. Non - Functional Requiremment
+
+        -> Low Latency: Messages should be delivered within milliseconds for online users. Target: p99 < 100ms for message delivery.
+        -> High Availability: The system must be highly available (99.99% uptime). Users expect messaging to work 24/7.
+        -> Reliability: Messages must never be lost. Once sent, a message should eventually be delivered, even if the recipient is offline.
+        -> Scalability: Support 500M+ daily active users and 20B+ messages per day.
+        -> Ordering: Messages within a conversation should appear in the correct order.
+        -> Consistency: Eventually consistent for presence, strong consistency for message delivery.
+
+
+2. Metrices
+
+    Daily Active Users (DAU): 500 million
+    Messages per user per day: 40
+    Average message size: 100 bytes (text content + metadata)
+    Average group size: 20 members
+    Percentage of group messages: 30%
+
+
+    Message Throughput
+
+        Total messages per day: 500 million users x 40 messages = 20 billion messages/day
+
+        Average messages per second: 20 billion / 86,400 seconds = ~230,000 messages/second
+
+        Peak load (3x average): ~700,000 messages/second
+
+
+    Connection Load
+
+        Concurrent connections: If 10% of DAU are online at any time = 50 million concurrent connections
+        Peak concurrent connections: ~100 million
+
+
+        Each of these 50 million connections requires maintaining a persistent WebSocket.
+        This is a fundamentally different challenge from handling 50 million HTTP requests per day.
+        These connections stay open, consuming memory and file descriptors on our servers.
+
+
+        If a single well-tuned server can handle 50,000 concurrent WebSocket connections (a reasonable estimate for modern hardware with proper kernel tuning), we need:
+
+        50 million connections / 50,000 per server = 1,000 chat servers
+
+
+    Storage (Per Day)
+
+        Message storage: 20 billion messages x 100 bytes = 2 TB/day
+
+        Annual storage: 2 TB x 365 = 730 TB/year (just for messages)
+
+
+    Bandwidth
+
+        Incoming bandwidth: 230K msg/sec x 100 bytes = ~23 MB/sec (inbound)
+
+        Outgoing bandwidth: Higher due to group message fanout
+
+        When a message goes to a group of 20 members, it needs to reach 20 devices. If 30% of messages are group messages, outbound traffic multiplies accordingly.
+
+
+
+3. Core APIs
+
+    Socket APIs
+
+        a. Send Message
+        b. Receive Message
+        c. Typing Indicator
+
+    
+    REST APIs
+
+        a. Fetch History
+        b. Update Status
+        c. Get Presence
+
+
+    i. Send Message
+
+        Endpoint: /message
+        
+        Payload: {
+            "sender_id": 123,
+            "recipient_id": 234, //receiver id
+            "message_type": [user, group],
+            "content": "Hi there",
+            "client_message_id": // Client-generated unique ID for deduplication,
+            "timestamp": // Client-side timestamp when the message was composed
+        }
+
+        Response: {
+                "message_id": "msg_123abc",
+                "status": "sent",
+                "server_timestamp": "2024-01-15T10:30:00.123Z"
+        }
+
+    ii. Fetch Messages
+
+        Endpoint: GET /conversations/{conversation_id}/messages
+
+            Params:
+
+                {
+                    conversation_id: // ID of conversation
+                    cursor: // Pagination cursor for fetching older messages
+                    limit: // Number of messages to return (default: 50, max: 100)
+                }
+
+            
+            Response:
+
+                {
+                    "messages": [
+                        {
+                        "message_id": "msg_123",
+                        "sender_id": "user_456",
+                        "content": "Hey, how are you?",
+                        "timestamp": "2024-01-15T10:30:00Z",
+                        "status": "read"
+                        }
+                    ],
+                    "next_cursor": "eyJtc2dfaWQiOiJtc2dfMTIyIn0=",
+                    "has_more": true
+                }
+
+
+    iii. Update Message Status
+
+        Endpoint: POST /messages/{message_id}/status
+
+            Payload: {
+                message_id: // ID of the message to update
+                status: // New status: delivered or read
+                timestamp: // When the status change occurred
+            }
+
+
+            Status updates flow in one direction: sent → delivered → read
+
+
+    iv. Get User Presence
+
+        Endpoint: GET /users/{user_id}/presence
+
+            Returns whether a user is currently online and, if offline, when they were last active. This powers the "online" indicator and "last seen" text in the UI.
+
+            Response: {
+                    "user_id": "user_456",
+                    "status": "offline",
+                    "last_seen": "2024-01-15T09:45:00Z"
+            }
+
+
+4. High-Level Design
+
+
+    Core Requirements
+
+        1. Real-time Message Delivery: Messages should reach online recipients within milliseconds.
+        2. Offline Message Handling: Messages for offline users need to be stored and delivered when they come back online.
+        3. Group Message Distribution: A single message should efficiently reach all group members.
+
+
+    Requirement 1: Real-time One-on-One Messaging
+
+
+        The Components We Need
+
+
+            i. Chat Servers
+
+                What chat servers do:
+                    -> Accept and maintain WebSocket connections from clients
+                    -> Receive messages from senders
+                    -> Route messages to the right recipients (which might be on different chat servers)
+                    -> Send heartbeats to detect dead connections
+                    -> Handle reconnection when users switch networks
+
+
+            This statefulness creates a routing challenge. When User A sends a message to User B, how does Chat Server 1 know that User B is on Chat Server 2?
+
+            ii. Session Service
+
+                This is where the Session Service comes in. It maintains a simple but critical mapping: which user is connected to which chat server.
+
+                What the Session Service does:
+                    -> Track which chat server each online user is connected to
+                    -> Update mappings in real-time as users connect and disconnect
+                    -> Provide sub-millisecond lookups for message routing
+
+                
+                We typically implement this using Redis because it offers exactly what we need: fast key-value lookups with built-in expiration for handling disconnections. The data structure is simple:
+
+                user_a -> chat_server_1
+                user_b -> chat_server_2
+                user_c -> chat_server_1
+
+
+            iii. Message Service
+
+                While routing messages in real-time is essential, we also need to persist them. Users expect to see their message history. If User B's phone dies right as a message arrives, we do not want to lose it.
+
+                What the Message Service does:
+                    -> Persist every message to the database before attempting delivery
+                    -> Generate server-side message IDs and timestamps (for ordering)
+                    -> Track message status (sent, delivered, read)
+                    -> Provide message history queries for the Fetch Messages API
+
+
+    Requirement 2: Handling Offline Users
+
+        New Components for Offline Handling
+
+
+            i. Message Queue
+
+                Think of the message queue as a mailbox.
+                When we discover that User B is offline, instead of dropping the message, we place it in User B's queue.
+                The messages sit there, safe and ordered, until User B comes back online.
+
+                What the message queue does:
+                    -> Store messages for offline users in order
+                    -> Track which messages have been delivered and which are pending
+                    -> Provide fast retrieval when users reconnect
+                    -> Handle the case where users are offline for extended periods
+
+                    We typically use a system like Kafka or Redis Streams for this.
+                    The key insight is that this is not the same as our message database.
+                    The database is for long-term storage and history.
+                    The queue is for pending deliveries, messages that have been persisted but not yet delivered to the recipient's device.
+
+
+            ii. Push Notification Service
+
+                Even though we cannot deliver the message content directly to an offline user, we can still tell them something is waiting.
+                This is where push notifications come in.
+
+                What the Push Notification Service does:
+                    -> Integrate with Apple Push Notification Service (APNs) for iOS
+                    -> Integrate with Firebase Cloud Messaging (FCM) for Android
+                    -> Send a notification like "New message from User A" to wake up the device
+                    -> Respect user preferences (muted conversations, quiet hours)
+
+
+                The Offline Message Flow: **see the diafram
+
+                When User B comes back online:
+
+                        User B connects -----> Chat Server -------> Fetched queued message -------> Message Queue --------> Deliver message
+
+
+
+    Requirement 3: Group Messaging
+
+
+        Consider this scenario: User A sends "Happy New Year!" to a family group with 50 members. That single message needs to reach 50 different devices, potentially scattered across 20 different chat servers, some members online and some offline, some on fast WiFi and some on spotty mobile networks.
+
+        With one-on-one messaging, one input means one output. With groups, one input means many outputs. This multiplier effect is called fanout, and it can easily overwhelm a naive implementation.
+
+
+        How to solve Fanout Problem:
+
+
+            Approach 1: Sender-Side Fanout
+
+                How it works:
+
+                    -> Chat Server 1 queries the Group Service for all members of the group
+                    -> For each member, it queries the Session Service to find their chat server
+                    -> It forwards the message to each destination chat server
+                    -> Each chat server delivers to their connected members
+
+                Pros:
+
+                    -> Simple to implement and reason about
+                    -> Low latency for small groups since there is no intermediary
+                    -> No additional infrastructure required
+
+                Cons:
+
+                    -> A single server becomes the bottleneck for large groups
+                    -> If that server crashes mid-fanout, delivery is incomplete
+                    -> A 500-member group could take several seconds to process
+
+
+            Approach 2: Message Queue Fanout
+
+                How it works:
+
+                    -> Chat Server 1 publishes the message to a Kafka topic for the group
+                    -> Multiple worker processes consume from this topic in parallel
+                    -> Each worker is responsible for delivering to a subset of group members
+                    -> The work is automatically distributed based on worker capacity
+
+                Pros:
+
+                    -> Scales horizontally by adding more workers
+                    -> Resilient to individual worker failures (Kafka retries automatically)
+                    -> No single point of bottleneck
+
+                Cons:
+
+                    -> Adds latency since messages pass through the queue
+                    -> More complex infrastructure to manage
+                    -> Overkill for small groups where direct delivery is faster
+
+
+
+            Approach 3: Hybrid Approach (Recommended)
+
+
+
+
+
+5. Database Design
+
+    5.1 SQL vs NoSQL
+
+        One of the most common mistakes in system design is treating all data the same.
+        A messaging system has two fundamentally different types of data, and each deserves a different storage strategy.
+
+        i. Message Data: Write-Heavy and Time-Ordered
+            
+            -> Write-heavy workload: We are writing 230,000 messages per second. Every single message needs to be persisted.
+            -> Simple queries: "Get me the last 50 messages for this conversation." No complex joins, no aggregations.
+            -> Time-series nature: Recent messages are accessed constantly. Messages from last year are rarely touched.
+            -> No transactions needed: A message either exists or it does not. We do not need to atomically update multiple messages.
+            -> High availability is critical: If the message database goes down, messaging stops.
+            -> Given these patterns, a wide-column NoSQL database like Apache Cassandra or ScyllaDB is the right choice:
+
+            -> Built for writes: Cassandra's log-structured storage handles high write throughput beautifully
+            -> Linear scalability: Need more capacity? Add more nodes. Cassandra distributes data automatically.
+            -> Time-series optimization: Clustering keys keep messages in a conversation sorted by time on disk
+            -> Tunable consistency: We can trade between consistency and availability per query
+
+
+        ii. User and Group Data: Relational and Consistent
+
+            -> Complex relationships: Which groups does this user belong to? Who are the admins of this group?
+            -> Transactions: When adding a user to a group, we need to update the group membership and the user's group list atomically
+            -> Strong consistency: If I just added you to a group, you should see it immediately
+            -> Read-heavy: User profiles are read often but updated rarely
+            -> For this, a relational database like PostgreSQL makes more sense:
+
+            -> Rich query capabilities: Joins, subqueries, and complex filters
+            -> ACID transactions: Multi-table updates are atomic
+            -> Strong consistency: Reads always see the latest writes
+            -> Mature ecosystem: Well-understood operations, excellent tooling
+
+
+    5.2 Database Schema
+
+        i. Messages Table (Cassandra)
+
+                Field	            Type	                    Description
+            conversation_id	  UUID (Partition Key)	      Unique identifier for the conversation
+            message_id	      TimeUUID (Clustering Key)	  Time-based UUID for ordering
+            sender_id	            UUID	              ID of the message sender
+            content	                Text	                 Message content
+            message_type	        Text	                 Type: text, image, video
+            status	                Text	                 Delivery status: sent, delivered, read
+            created_at	         Timestamp	                 Server timestamp
+
+        
+            Partition Key (conversation_id): This determines which nodes store the data. All messages in a single conversation live together on the same nodes. When we query "last 50 messages for conversation X", Cassandra knows exactly which nodes to ask. This is what makes reads fast.
+
+            Clustering Key (message_id as TimeUUID): Within a partition (a conversation), messages are physically sorted on disk by the clustering key. A TimeUUID is a special UUID that encodes the timestamp, so messages are automatically ordered by time. Fetching "the last 50 messages" becomes a simple range scan, not a full table scan.
+
+        
+        ii. User Conversations Table (Cassandra)
+
+            When a user opens the app, the first thing they see is their conversation list.
+            We need to answer: "What are this user's recent conversations, and what was the last message in each?"
+
+
+                Field	            Type	                    Description
+            user_id	            UUID (Partition Key)	          User ID
+            conversation_id	    UUID (Clustering Key)	      Conversation ID
+            last_message_at	        Timestamp	              Time of last message
+            unread_count	        Integer	                  Number of unread messages
+            last_message_preview	Text	                  Preview of last message
+
+
+        
+        iii. Groups Table (PostgreSQL)
+
+            Field	            Type	          Description
+            group_id	      UUID (PK)	        Unique group identifier
+            name	          VARCHAR(100)	    Group name
+            creator_id	      UUID (FK)	        User who created the group
+            created_at	      Timestamp	        Creation time
+            member_count	  Integer	        Number of members
+
+
+
+        iv. Group Members Table (PostgreSQL)
+
+            Field	       Type	               Description
+            group_id	UUID (PK, FK)	         Group ID
+            user_id	    UUID (PK, FK)	         User ID
+            role	     VARCHAR(20)	         Role: admin, member
+            joined_at	 Timestamp	             When user joined
+
+
+
+
+6. Design Deep Dive
+
+
+    i. WebSocket vs Long Polling vs Server-Sent Events
+
+        Approach 1: HTTP Long Polling
+
+            Pros:
+
+                a. Works everywhere, including through corporate proxies and strict firewalls that block other protocols
+                b. Uses standard HTTP infrastructure, so load balancers and caching work as expected
+                c. Simple fallback when more modern approaches are blocked
+
+            Cons:
+
+                a. Each request cycle involves TCP connection setup, HTTP headers, and potential TLS handshakes, all overhead that adds up
+                b. There is inherent latency: a message might arrive just after the last response, requiring the user to wait for the next polling cycle
+                c. Servers hold many mostly-idle connections, wasting resources
+
+
+        Approach 2: Server-Sent Events (SSE)
+
+            SSE improves on long polling by establishing a true persistent connection, but only in one direction. The server can push events to the client continuously, but the client still needs to use regular HTTP requests to send data back.
+
+            Pros:
+
+                a. Eliminates the request/response cycle of long polling
+                b. Built-in reconnection handling when connections drop
+                c. Works well with HTTP/2, which can multiplex multiple streams
+
+            Cons:
+
+                a. Fundamentally unidirectional, so chat requires a hybrid approach: SSE for receiving, HTTP for sending
+                b. This asymmetry adds complexity and slightly higher latency for outgoing messages
+                c. Not as universally supported as WebSockets in mobile SDKs
+
+
+        Approach 3: WebSocket (Recommended)
+
+            Pros:
+
+                a. True bidirectional communication: either side can initiate a message at any time
+                b. Minimal overhead after connection: just the WebSocket frame header (as small as 2 bytes)
+                c. Lowest possible latency: messages are pushed instantly
+                d. Single connection for all traffic, reducing connection setup costs
+
+            Cons:
+
+                a. Stateful nature complicates scaling: you need to track which server each user is on
+                b. Requires WebSocket-aware load balancers and proxies
+                c. Connection management requires heartbeats, reconnection logic, and careful error handling
+
+        
+
+    ii. Message Delivery Guarantees
+
+        Everyone who has used WhatsApp knows the checkmarks: one gray for sent, two gray for delivered, two blue for read.
+        These simple icons hide a lot of complexity.
+
+        a. Sent (single gray checkmark): The message has been persisted on our servers. The user can close the app knowing the message will not be lost.
+
+        b. The message has reached the recipient's device. They may not have seen it yet, but it is on their phone.
+
+        c. Read (double blue checkmarks): The recipient has opened the conversation and viewed the message.
+
+
+
+
+        Ensuring At-Least-Once Delivery
+
+            i. Client-Side Retry with Idempotency
+
+
+
+        Server-Side Persistence Before Acknowledgment
+
+            There is one more critical rule for reliable messaging: never acknowledge a message until it is persisted to durable storage.
+
+            If the server crashes between receiving a message and persisting it, the message is lost. By only sending ACK after persistence, we guarantee that any acknowledged message is safely stored.
+
+
+        Handling Out-of-Order Messages
+
+            Networks don't guarantee ordering. If User A sends "Hello" then "How are you?", network conditions might deliver them in reverse order.
+
+            The solution involves multiple mechanisms: ** see diagram for more clarity
+
+                i. Sequence numbers per conversation: Each message gets an incrementing sequence number within its conversation
+                ii. Server-side timestamp: Server assigns authoritative timestamp for ordering
+                iii. Client-side reordering: Client sorts messages by sequence number before display
+
+
+
+    iii. Presence System (Online/Offline Status)
+
+            The Challenges
+
+                i. Constant churn: Users open and close apps constantly. Their phones switch between WiFi, cellular, and airplane mode. Status changes happen all the time.
+                ii. Fanout explosion: If User A has 500 contacts and comes online, do we notify all 500? What if 1000 users come online in the same second?
+                iii. Accuracy vs. efficiency: Users want accurate presence, but broadcasting every change would overwhelm the system.
+
+
+            Approach: Heartbeat-Based Presence with Lazy Queries
+
+
+            How It Works
+                -> Connection: When a user connects, the chat server sets a key in Redis: presence:user_123 = online with a TTL of 30 seconds.
+                -> Heartbeat: Every 10 seconds, the client sends a heartbeat over the WebSocket. The server refreshes the TTL, resetting it to 30 seconds.
+                -> Disconnect: If heartbeats stop (the user closed the app, lost network, or the phone died), the key expires automatically after 30 seconds.
+                -> Query: When User B opens a chat with User A, the app queries: "What is the presence of User A?" Redis returns the value if the key exists, or nothing if it has expired.
+
+
+
+            Optimizing Presence Fanout
+
+                The naive approach, broadcasting presence changes to all contacts, doesn't scale. If a user has 500 contacts, and 10% of users change presence every minute, the fanout traffic explodes.
+
+                Solution: Lazy Presence Queries
+
+
+                    Instead of broadcasting, query presence only when needed:
+
+
+                    When User A opens a chat with User B:
+
+                        -> Query Redis for User B's presence
+                        -> Display result in UI
+                        -> Subscribe to presence updates (via Redis pub/sub) for real-time changes while chat is open
+                        -> Unsubscribe when chat is closed
+
+
+                Last Seen Timestamp
+
+                    Instead of binary online/offline, many apps show "last seen at [time]":
+
+                    i. Update last_seen timestamp on every meaningful user action
+                    ii. When queried, return the timestamp
+                    iii. Client displays relative time ("last seen 5 minutes ago")
+
+
+
+    
+    iv. Message Synchronization Across Devices
+
+        When a message arrives for User A, we need to:
+
+            -> Push to all online devices immediately
+            -> Queue for offline devices
+            -> Sync read/delivered status across all devices
+
+        
+        Hybrid Sync Strategy
+            The best approach combines real-time push with catch-up pull:
+
+            Real-time Push (Online Devices)
+
+                When User A has multiple devices connected, the Session Service tracks all of them:
+
+                user_a -> [chat_server_1 (phone), chat_server_3 (web)]
+
+                When a message arrives:
+
+                    -> Session Service returns all device connections
+                    -> Message is pushed to all connected devices simultaneously
+                    -> Each device sends independent ACK
+                    -> "Delivered" status is set when ANY device acknowledges
+
+
+            Catch-up Pull (Reconnecting Devices)
+
+                When a device comes online after being offline:
+
+                The device sends its last sync timestamp when connecting. The server fetches all messages since then and delivers them in bulk. This ensures no messages are ever missed, regardless of how long the device was offline.
+
+
+            
+        Read Status Synchronization
+
+            When User A reads a message on their phone:
+
+            All of User A's devices see the same read status. The sender (User B) also gets notified that the message was read.
+
+
+
+
+
+    v. Scaling Chat Servers
+
+
+        Chat servers are fundamentally different from typical web servers. While a stateless API server can be scaled by simply adding more instances behind a load balancer, chat servers hold state: the WebSocket connections themselves.
+
+
+        Connection Limits
+
+            A well-tuned server with proper kernel configuration can handle 50,000 to 100,000 concurrent WebSocket connections. The limits come from file descriptors, memory, and CPU for processing messages.
+
+            For our target of 50 million concurrent users, we need:
+
+            50M connections / 50K per server = 1,000 chat servers
+
+            
+
+        Sticky Sessions and Connection Affinity
+
+
+            Load balancer configuration options:
+
+                -> Consistent hashing by user_id: Same user always routes to the same server (until server list changes)
+                -> Connection tracking: Load balancer remembers which server each connection went to
+                -> Client-side server assignment: Server tells client which specific server to connect to on subsequent attempts
+
+
+            
+        Handling Server Failures
+
+
+            What happens when a chat server crashes? With 50,000 users per server, a crash is a significant event.
+
+
+            The recovery flow:
+
+                -> Detection: Client detects disconnection (heartbeat timeout, connection close event)
+                -> Reconnection: Client connects to load balancer, which routes to a healthy server
+                -> State Recovery: New server registers the connection in Session Service
+                -> Message Recovery: Pending messages are fetched from the queue
+                -> Resume: Normal operation continues
+
+
+
+        Graceful Shutdown
+
+            Production systems need regular maintenance: OS patches, code deployments, hardware replacements. Graceful shutdown minimizes user impact:
+
+                -> Mark as draining: Remove server from load balancer pool
+                -> Stop new connections: Reject any new WebSocket handshakes
+                -> Notify clients: Send a "please reconnect elsewhere" message
+                -> Wait for drain: Give clients time to gracefully disconnect (typically 30-60 seconds)
+                -> Force close: Terminate any remaining connections
+                -> Shutdown: Server can now safely restart
+
+
+
+
+    vi. End-to-End Encryption (Conceptual)
+
+
+        End-to-end encryption (E2EE) ensures that only the sender and recipient can read messages. Even the service provider (WhatsApp, Signal, etc.) cannot decrypt message content.
+
+        ** see the blog
